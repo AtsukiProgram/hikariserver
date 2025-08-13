@@ -377,6 +377,7 @@ body {
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
     transition: transform 0.3s ease;
     z-index: 998;
+    /* 完全中央配置のためのフレックス設定 */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -386,12 +387,15 @@ body {
     font-size: 2rem;
     font-weight: bold;
     line-height: 1;
-    text-align: center;
+    /* 完全中央配置保証 */
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
+    margin: 0;
+    padding: 0;
+    /* ブラウザ間の互換性確保 */
+    text-align: center;
+    vertical-align: middle;
 }
 
 .plus-btn:hover {
@@ -515,6 +519,7 @@ body {
     display: flex;
     gap: 10px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .file-select-btn {
@@ -525,6 +530,7 @@ body {
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
+    white-space: nowrap;
 }
 
 .file-select-btn:hover {
@@ -644,6 +650,11 @@ body {
     .web-grid {
         grid-template-columns: 1fr;
         max-width: 100%;
+    }
+    
+    .file-input-wrapper {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 

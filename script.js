@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Firebase設定（あなたの設定情報）
+// Firebase設定
 const firebaseConfig = {
     apiKey: "AIzaSyBypbd3t_1FycOdFPIWLLzhz-Z7hHNFqTg",
     authDomain: "hikari-server-data.firebaseapp.com",
@@ -287,8 +287,18 @@ class LightServerWebsite {
                     <h3>${member.name}</h3>
                     <div class="member-description">${this.parseDiscordMarkdown(member.description)}</div>
                 </div>
-                <button class="delete-btn" onclick="window.lightServer.deleteItem('member', ${index})">&times;</button>
+                <button class="delete-btn" data-delete-type="member" data-delete-index="${index}">&times;</button>
             `;
+            
+            // 削除ボタンにイベントリスナーを追加（修正版）
+            const deleteBtn = element.querySelector('.delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteItem('member', index);
+                });
+            }
+            
             container.appendChild(element);
         });
 
@@ -323,8 +333,18 @@ class LightServerWebsite {
             element.innerHTML = `
                 <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDEwIDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
                 <div class="web-title">${item.title}</div>
-                <button class="delete-btn" onclick="window.lightServer.deleteItem('web', ${index}); event.stopPropagation();">&times;</button>
+                <button class="delete-btn" data-delete-type="web" data-delete-index="${index}">&times;</button>
             `;
+            
+            // 削除ボタンにイベントリスナーを追加
+            const deleteBtn = element.querySelector('.delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteItem('web', index);
+                });
+            }
+            
             container.appendChild(element);
         });
 
@@ -335,14 +355,14 @@ class LightServerWebsite {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
 
-        // ロードマップ作成時に設定した日付順でソート（古い日付を上に表示）
+        // ロードマップ作成時に設定した日付順でソート（古い日付を上に表示）[13][16]
         const sortedRoadmap = [...this.data.roadmap].sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
             return dateA - dateB; // 昇順ソート（古い日付が上）
         });
 
-        sortedRoadmap.forEach((item, index) => {
+        sortedRoadmap.forEach((item, sortedIndex) => {
             // 元の配列でのインデックスを取得（削除機能用）
             const originalIndex = this.data.roadmap.findIndex(original => 
                 original.date === item.date && 
@@ -356,8 +376,18 @@ class LightServerWebsite {
                 <div class="roadmap-date">${item.date}</div>
                 <h3>${item.title}</h3>
                 <div class="roadmap-content">${this.parseDiscordMarkdown(item.content)}</div>
-                <button class="delete-btn" onclick="window.lightServer.deleteItem('roadmap', ${originalIndex})">&times;</button>
+                <button class="delete-btn" data-delete-type="roadmap" data-delete-index="${originalIndex}">&times;</button>
             `;
+            
+            // 削除ボタンにイベントリスナーを追加
+            const deleteBtn = element.querySelector('.delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteItem('roadmap', originalIndex);
+                });
+            }
+            
             container.appendChild(element);
         });
 
@@ -379,8 +409,17 @@ class LightServerWebsite {
             <h3>${item.title}</h3>
             <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
             <div class="content-date">${dateLabel}</div>
-            <button class="delete-btn" onclick="window.lightServer.deleteItem('${type}', ${index})">&times;</button>
+            <button class="delete-btn" data-delete-type="${type}" data-delete-index="${index}">&times;</button>
         `;
+        
+        // 削除ボタンにイベントリスナーを追加
+        const deleteBtn = element.querySelector('.delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteItem(type, index);
+            });
+        }
         
         return element;
     }
@@ -498,15 +537,21 @@ class LightServerWebsite {
         // MEMBERページの場合、ファイル選択ボタンとプレビューのイベントリスナーを設定
         if (this.currentPage === 'member') {
             // 画像URL入力時のプレビュー
-            document.getElementById('input-image').addEventListener('input', (e) => {
-                this.updateImagePreview(e.target.value);
-            });
+            const imageInput = document.getElementById('input-image');
+            if (imageInput) {
+                imageInput.addEventListener('input', (e) => {
+                    this.updateImagePreview(e.target.value);
+                });
+            }
             
             // ファイル選択ボタンのイベントリスナー（修正版）
-            document.getElementById('file-select-button').addEventListener('click', (e) => {
-                e.preventDefault();
-                this.selectFile();
-            });
+            const fileSelectBtn = document.getElementById('file-select-button');
+            if (fileSelectBtn) {
+                fileSelectBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.selectFile();
+                });
+            }
         }
         
         modal.style.display = 'flex';
@@ -522,8 +567,11 @@ class LightServerWebsite {
             const reader = new FileReader();
             reader.onload = (event) => {
                 const dataURL = event.target.result;
-                document.getElementById('input-image').value = dataURL;
-                this.updateImagePreview(dataURL);
+                const imageInput = document.getElementById('input-image');
+                if (imageInput) {
+                    imageInput.value = dataURL;
+                    this.updateImagePreview(dataURL);
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -531,11 +579,13 @@ class LightServerWebsite {
 
     updateImagePreview(imageSrc) {
         const preview = document.getElementById('image-preview');
-        if (imageSrc) {
-            preview.src = imageSrc;
-            preview.style.display = 'block';
-        } else {
-            preview.style.display = 'none';
+        if (preview) {
+            if (imageSrc) {
+                preview.src = imageSrc;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
         }
     }
 
@@ -636,12 +686,17 @@ class LightServerWebsite {
     }
 }
 
-// グローバルインスタンス（削除ボタン用にwindowオブジェクトに追加）
+// グローバルインスタンス（修正版：確実にwindowオブジェクトに追加）
 let lightServer;
 
-// ページ読み込み時に初期化
+// ページ読み込み時に初期化（修正版）
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
-    // グローバルアクセス用（削除ボタンのonclick属性で使用）
+    
+    // グローバルアクセス用（inline onClickイベントやコンソールからのアクセス用）
     window.lightServer = lightServer;
+    
+    // デバッグ用ログ
+    console.log('Light Server Website initialized successfully!');
+    console.log('lightServer object is available globally:', !!window.lightServer);
 });
