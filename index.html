@@ -5,22 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>光鯖 公式ホームページ</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase v9 Modular SDK -->
+    <script type="module" src="script.js"></script>
 </head>
 <body>
     <!-- ロゴ（常時表示） -->
     <img src="logo.png" id="logo" alt="光鯖ロゴ">
-
+    
     <!-- ナビゲーションメニュー -->
     <nav id="navbar">
         <div class="nav-container">
-            <!-- ハンバーガーメニューボタン（モバイル用） -->
             <div class="hamburger" id="hamburger">
                 <span></span>
                 <span></span>
                 <span></span>
             </div>
-
-            <!-- ナビゲーションリンク -->
+            
             <div class="nav-links" id="nav-links">
                 <a href="#" data-page="top" class="nav-link active">
                     <span class="nav-text">TOP</span>
@@ -56,7 +57,6 @@
 
     <!-- メインコンテンツ -->
     <main id="main-content">
-        <!-- TOPページ -->
         <div id="top-page" class="page active">
             <div class="top-background">
                 <img src="top.png" alt="背景画像" class="background-image">
@@ -67,7 +67,6 @@
             </div>
         </div>
 
-        <!-- NEWSページ -->
         <div id="news-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">NEWS</h2>
@@ -75,7 +74,6 @@
             </div>
         </div>
 
-        <!-- MEMBERページ -->
         <div id="member-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">MEMBER</h2>
@@ -83,7 +81,6 @@
             </div>
         </div>
 
-        <!-- SCHEDULEページ -->
         <div id="schedule-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">SCHEDULE</h2>
@@ -91,7 +88,6 @@
             </div>
         </div>
 
-        <!-- WEBページ -->
         <div id="web-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">WEB</h2>
@@ -99,7 +95,6 @@
             </div>
         </div>
 
-        <!-- ROADMAPページ -->
         <div id="roadmap-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">ROADMAP</h2>
@@ -108,12 +103,10 @@
         </div>
     </main>
 
-    <!-- 管理者用+ボタン -->
     <div id="admin-plus-btn" class="plus-btn" style="display: none;">
         <div class="plus-icon">+</div>
     </div>
 
-    <!-- モーダルダイアログ -->
     <div id="modal-overlay" class="modal-overlay">
         <div id="modal-content" class="modal-content">
             <div class="modal-header">
@@ -128,9 +121,6 @@
         </div>
     </div>
 
-    <!-- 隠しファイル入力 -->
     <input type="file" id="hidden-file-input" accept="image/*" style="display: none;">
-
-    <script src="script.js"></script>
 </body>
 </html>
