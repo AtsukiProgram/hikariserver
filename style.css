@@ -221,6 +221,9 @@ body {
     cursor: pointer;
     display: none;
     font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* メンバーリスト（1列固定） */
@@ -356,7 +359,11 @@ body {
     margin-bottom: 15px;
 }
 
-/* +ボタン（完全中央配置） */
+.roadmap-content {
+    color: #555;
+}
+
+/* +ボタン（完全中央配置修正版） */
 .plus-btn {
     position: fixed;
     bottom: 30px;
@@ -366,19 +373,20 @@ body {
     border-radius: 50%;
     background: #3498db;
     color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: pointer;
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
     transition: transform 0.3s ease;
     z-index: 998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .plus-icon {
     font-size: 2rem;
     font-weight: bold;
     line-height: 1;
+    text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -540,20 +548,20 @@ body {
     .nav-links {
         gap: 2px;
     }
-
+    
     .nav-link {
         padding: 6px 12px;
         min-width: 60px;
     }
-
+    
     .nav-text {
         font-size: 0.8rem;
     }
-
+    
     .nav-japanese {
         font-size: 0.6rem;
     }
-
+    
     .web-grid {
         max-width: 600px;
     }
@@ -564,7 +572,7 @@ body {
     .hamburger {
         display: flex;
     }
-
+    
     .nav-links {
         position: fixed;
         top: 70px;
@@ -578,11 +586,11 @@ body {
         padding: 20px 0;
         box-shadow: -2px 0 10px rgba(0,0,0,0.1);
     }
-
+    
     .nav-links.active {
         right: 0;
     }
-
+    
     .nav-link {
         padding: 15px 20px;
         border-radius: 0;
@@ -592,47 +600,47 @@ body {
         flex-direction: row;
         gap: 10px;
     }
-
+    
     .nav-text {
         font-size: 1rem;
     }
-
+    
     .nav-japanese {
         font-size: 0.7rem;
     }
-
+    
     .server-title {
         font-size: 2.5rem;
     }
-
+    
     .server-subtitle {
         font-size: 1.2rem;
     }
-
+    
     .member-item {
         flex-direction: column;
         text-align: center;
     }
-
+    
     #logo {
         width: 40px;
         height: 40px;
         top: 15px;
         left: 15px;
     }
-
+    
     .page-container {
         padding: 20px 15px;
     }
-
+    
     .page-title {
         font-size: 2rem;
     }
-
+    
     .member-list {
         max-width: 100%;
     }
-
+    
     .web-grid {
         grid-template-columns: 1fr;
         max-width: 100%;
@@ -644,19 +652,19 @@ body {
     .nav-links {
         width: 200px;
     }
-
+    
     .server-title {
         font-size: 2rem;
     }
-
+    
     .server-subtitle {
         font-size: 1rem;
     }
-
+    
     .nav-text {
         font-size: 0.9rem;
     }
-
+    
     .nav-japanese {
         font-size: 0.6rem;
     }

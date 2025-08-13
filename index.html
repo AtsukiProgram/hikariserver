@@ -4,51 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>光鯖 公式ホームページ</title>
-    <link rel="shortcut icon" href="icon.png">
+    <meta name="description" content="光鯖は日常組公式サイトスタイルのマインクラフト自鯖です。メンバー情報、最新ニュース、スケジュール、ロードマップを公開中。パスワード認証でメンバー・管理者モード対応。">
+    <meta name="keywords" content="光鯖,マインクラフト,サーバー,Minecraft,自鯖,ゲーム,日常組,hikaripage">
+    
+    <!-- Open Graph（SNS共有用） -->
+    <meta property="og:title" content="光鯖公式ホームページ">
+    <meta property="og:description" content="まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <meta property="og:url" content="https://hikaripage.f5.si">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://hikaripage.f5.si/logo.png">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="光鯖公式ホームページ">
+    <meta name="twitter:description" content="まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <meta name="twitter:image" content="https://hikaripage.f5.si/logo.png">
+    
+    <!-- その他のタグ -->
+    <link rel="canonical" href="https://hikaripage.f5.si">
     <link rel="stylesheet" href="style.css">
+    
+    <!-- 構造化データ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "光鯖公式ホームページ",
+      "alternateName": "光鯖",
+      "url": "https://hikaripage.f5.si",
+      "description": "まだ見ぬ世界を魅せるマインクラフトサーバー",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://hikaripage.f5.si/?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "光鯖",
+        "url": "https://hikaripage.f5.si"
+      }
+    }
+    </script>
     
     <!-- Firebase v9 Modular SDK -->
     <script type="module" src="script.js"></script>
 </head>
 <body>
     <!-- ロゴ（常時表示） -->
-    <img src="logo.png" id="logo" alt="光鯖ロゴ">
+    <img src="logo.png" id="logo" alt="光鯖公式ロゴ - マインクラフト自鯖サーバー">
     
     <!-- ナビゲーションメニュー -->
     <nav id="navbar">
         <div class="nav-container">
+            <!-- ハンバーガーメニューボタン（モバイル用） -->
             <div class="hamburger" id="hamburger">
                 <span></span>
                 <span></span>
                 <span></span>
             </div>
             
+            <!-- ナビゲーションリンク -->
             <div class="nav-links" id="nav-links">
-                <a href="#" data-page="top" class="nav-link active">
+                <a href="#top" data-page="top" class="nav-link active">
                     <span class="nav-text">TOP</span>
                     <span class="nav-japanese">トップ</span>
                 </a>
-                <a href="#" data-page="news" class="nav-link">
+                <a href="#news" data-page="news" class="nav-link">
                     <span class="nav-text">NEWS</span>
                     <span class="nav-japanese">お知らせ</span>
                 </a>
-                <a href="#" data-page="member" class="nav-link">
+                <a href="#member" data-page="member" class="nav-link">
                     <span class="nav-text">MEMBER</span>
                     <span class="nav-japanese">メンバー</span>
                 </a>
-                <a href="#" data-page="schedule" class="nav-link">
+                <a href="#schedule" data-page="schedule" class="nav-link">
                     <span class="nav-text">SCHEDULE</span>
                     <span class="nav-japanese">予定</span>
                 </a>
-                <a href="#" data-page="web" class="nav-link">
+                <a href="#web" data-page="web" class="nav-link">
                     <span class="nav-text">WEB</span>
                     <span class="nav-japanese">ウェブ</span>
                 </a>
-                <a href="#" data-page="roadmap" class="nav-link">
+                <a href="#roadmap" data-page="roadmap" class="nav-link">
                     <span class="nav-text">ROADMAP</span>
                     <span class="nav-japanese">ロードマップ</span>
                 </a>
-                <a href="#" data-page="operation" class="nav-link" id="operationBtn">
+                <a href="#operation" data-page="operation" class="nav-link" id="operationBtn">
                     <span class="nav-text">OPERATION</span>
                     <span class="nav-japanese">管理</span>
                 </a>
@@ -58,9 +102,10 @@
 
     <!-- メインコンテンツ -->
     <main id="main-content">
+        <!-- TOPページ -->
         <div id="top-page" class="page active">
             <div class="top-background">
-                <img src="top.png" alt="背景画像" class="background-image">
+                <img src="top.png" alt="光鯖メインビジュアル - まだ見ぬ世界を魅せる" class="background-image">
                 <div class="top-overlay">
                     <h1 class="server-title">光鯖</h1>
                     <p class="server-subtitle">まだ見ぬ世界を魅せる</p>
@@ -68,6 +113,7 @@
             </div>
         </div>
 
+        <!-- NEWSページ -->
         <div id="news-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">NEWS</h2>
@@ -75,6 +121,7 @@
             </div>
         </div>
 
+        <!-- MEMBERページ -->
         <div id="member-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">MEMBER</h2>
@@ -82,6 +129,7 @@
             </div>
         </div>
 
+        <!-- SCHEDULEページ -->
         <div id="schedule-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">SCHEDULE</h2>
@@ -89,6 +137,7 @@
             </div>
         </div>
 
+        <!-- WEBページ -->
         <div id="web-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">WEB</h2>
@@ -96,6 +145,7 @@
             </div>
         </div>
 
+        <!-- ROADMAPページ -->
         <div id="roadmap-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">ROADMAP</h2>
@@ -104,10 +154,12 @@
         </div>
     </main>
 
+    <!-- 管理者用+ボタン -->
     <div id="admin-plus-btn" class="plus-btn" style="display: none;">
         <div class="plus-icon">+</div>
     </div>
 
+    <!-- モーダルダイアログ -->
     <div id="modal-overlay" class="modal-overlay">
         <div id="modal-content" class="modal-content">
             <div class="modal-header">
@@ -122,7 +174,7 @@
         </div>
     </div>
 
+    <!-- 隠しファイル入力 -->
     <input type="file" id="hidden-file-input" accept="image/*" style="display: none;">
 </body>
-
 </html>

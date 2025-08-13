@@ -82,8 +82,8 @@ class LightServerWebsite {
 
     // パスワード検証
     validatePassword(input) {
-        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113);
-        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53);
+        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113); // z9x1y5hq
+        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53); // x0hlt4i5
         
         if (input === memberPass) {
             return 'member';
@@ -287,7 +287,7 @@ class LightServerWebsite {
                     <h3>${member.name}</h3>
                     <div class="member-description">${this.parseDiscordMarkdown(member.description)}</div>
                 </div>
-                <button class="delete-btn" onclick="lightServer.deleteItem('member', ${index})">&times;</button>
+                <button class="delete-btn" onclick="window.lightServer.deleteItem('member', ${index})">&times;</button>
             `;
             container.appendChild(element);
         });
@@ -323,7 +323,7 @@ class LightServerWebsite {
             element.innerHTML = `
                 <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDEwIDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
                 <div class="web-title">${item.title}</div>
-                <button class="delete-btn" onclick="lightServer.deleteItem('web', ${index}); event.stopPropagation();">&times;</button>
+                <button class="delete-btn" onclick="window.lightServer.deleteItem('web', ${index}); event.stopPropagation();">&times;</button>
             `;
             container.appendChild(element);
         });
@@ -335,14 +335,28 @@ class LightServerWebsite {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
 
-        this.data.roadmap.forEach((item, index) => {
+        // ロードマップ作成時に設定した日付順でソート（古い日付を上に表示）
+        const sortedRoadmap = [...this.data.roadmap].sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateA - dateB; // 昇順ソート（古い日付が上）
+        });
+
+        sortedRoadmap.forEach((item, index) => {
+            // 元の配列でのインデックスを取得（削除機能用）
+            const originalIndex = this.data.roadmap.findIndex(original => 
+                original.date === item.date && 
+                original.title === item.title && 
+                original.content === item.content
+            );
+
             const element = document.createElement('div');
             element.className = 'roadmap-item';
             element.innerHTML = `
                 <div class="roadmap-date">${item.date}</div>
                 <h3>${item.title}</h3>
                 <div class="roadmap-content">${this.parseDiscordMarkdown(item.content)}</div>
-                <button class="delete-btn" onclick="lightServer.deleteItem('roadmap', ${index})">&times;</button>
+                <button class="delete-btn" onclick="window.lightServer.deleteItem('roadmap', ${originalIndex})">&times;</button>
             `;
             container.appendChild(element);
         });
@@ -365,7 +379,7 @@ class LightServerWebsite {
             <h3>${item.title}</h3>
             <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
             <div class="content-date">${dateLabel}</div>
-            <button class="delete-btn" onclick="lightServer.deleteItem('${type}', ${index})">&times;</button>
+            <button class="delete-btn" onclick="window.lightServer.deleteItem('${type}', ${index})">&times;</button>
         `;
         
         return element;
@@ -404,7 +418,7 @@ class LightServerWebsite {
                         <label>画像</label>
                         <div class="file-input-wrapper">
                             <input type="url" id="input-image" placeholder="画像URLを入力 または">
-                            <button type="button" class="file-select-btn" onclick="lightServer.selectFile()">ファイル選択</button>
+                            <button type="button" class="file-select-btn" id="file-select-button">ファイル選択</button>
                         </div>
                         <img id="image-preview" class="image-preview" style="display: none;">
                     </div>
@@ -481,9 +495,17 @@ class LightServerWebsite {
 
         body.innerHTML = formHTML;
         
+        // MEMBERページの場合、ファイル選択ボタンとプレビューのイベントリスナーを設定
         if (this.currentPage === 'member') {
+            // 画像URL入力時のプレビュー
             document.getElementById('input-image').addEventListener('input', (e) => {
                 this.updateImagePreview(e.target.value);
+            });
+            
+            // ファイル選択ボタンのイベントリスナー（修正版）
+            document.getElementById('file-select-button').addEventListener('click', (e) => {
+                e.preventDefault();
+                this.selectFile();
             });
         }
         
@@ -614,10 +636,12 @@ class LightServerWebsite {
     }
 }
 
-// グローバルインスタンス
+// グローバルインスタンス（削除ボタン用にwindowオブジェクトに追加）
 let lightServer;
 
 // ページ読み込み時に初期化
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
+    // グローバルアクセス用（削除ボタンのonclick属性で使用）
+    window.lightServer = lightServer;
 });
