@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光鯖 公式ホームページ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ロゴ（常時表示） -->
+    <img src="logo.png" id="logo" alt="光鯖ロゴ">
+
+    <!-- ナビゲーションメニュー -->
+    <nav id="navbar">
+        <div class="nav-container">
+            <!-- ハンバーガーメニューボタン（モバイル用） -->
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
+            <!-- ナビゲーションリンク -->
+            <div class="nav-links" id="nav-links">
+                <a href="#" data-page="top" class="nav-link active">
+                    <span class="nav-text">TOP</span>
+                    <span class="nav-japanese">トップ</span>
+                </a>
+                <a href="#" data-page="news" class="nav-link">
+                    <span class="nav-text">NEWS</span>
+                    <span class="nav-japanese">お知らせ</span>
+                </a>
+                <a href="#" data-page="member" class="nav-link">
+                    <span class="nav-text">MEMBER</span>
+                    <span class="nav-japanese">メンバー</span>
+                </a>
+                <a href="#" data-page="schedule" class="nav-link">
+                    <span class="nav-text">SCHEDULE</span>
+                    <span class="nav-japanese">予定</span>
+                </a>
+                <a href="#" data-page="web" class="nav-link">
+                    <span class="nav-text">WEB</span>
+                    <span class="nav-japanese">ウェブ</span>
+                </a>
+                <a href="#" data-page="roadmap" class="nav-link">
+                    <span class="nav-text">ROADMAP</span>
+                    <span class="nav-japanese">ロードマップ</span>
+                </a>
+                <a href="#" data-page="operation" class="nav-link" id="operationBtn">
+                    <span class="nav-text">OPERATION</span>
+                    <span class="nav-japanese">管理</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- メインコンテンツ -->
+    <main id="main-content">
+        <!-- TOPページ -->
+        <div id="top-page" class="page active">
+            <div class="top-background">
+                <img src="top.png" alt="背景画像" class="background-image">
+                <div class="top-overlay">
+                    <h1 class="server-title">光鯖</h1>
+                    <p class="server-subtitle">まだ見ぬ世界を魅せる</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEWSページ -->
+        <div id="news-page" class="page">
+            <div class="page-container">
+                <h2 class="page-title">NEWS</h2>
+                <div id="news-list" class="content-list"></div>
+            </div>
+        </div>
+
+        <!-- MEMBERページ -->
+        <div id="member-page" class="page">
+            <div class="page-container">
+                <h2 class="page-title">MEMBER</h2>
+                <div id="member-list" class="member-list"></div>
+            </div>
+        </div>
+
+        <!-- SCHEDULEページ -->
+        <div id="schedule-page" class="page">
+            <div class="page-container">
+                <h2 class="page-title">SCHEDULE</h2>
+                <div id="schedule-list" class="content-list"></div>
+            </div>
+        </div>
+
+        <!-- WEBページ -->
+        <div id="web-page" class="page">
+            <div class="page-container">
+                <h2 class="page-title">WEB</h2>
+                <div id="web-list" class="web-grid"></div>
+            </div>
+        </div>
+
+        <!-- ROADMAPページ -->
+        <div id="roadmap-page" class="page">
+            <div class="page-container">
+                <h2 class="page-title">ROADMAP</h2>
+                <div id="roadmap-list" class="roadmap-timeline"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 管理者用+ボタン -->
+    <div id="admin-plus-btn" class="plus-btn" style="display: none;">
+        <div class="plus-icon">+</div>
+    </div>
+
+    <!-- モーダルダイアログ -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div id="modal-content" class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">タイトル</h3>
+                <button id="modal-close" class="modal-close">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+            <div class="modal-footer">
+                <button id="modal-cancel" class="btn btn-cancel">キャンセル</button>
+                <button id="modal-submit" class="btn btn-submit">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隠しファイル入力 -->
+    <input type="file" id="hidden-file-input" accept="image/*" style="display: none;">
+
+    <script src="script.js"></script>
+</body>
+</html>
