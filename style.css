@@ -493,8 +493,9 @@ body {
     }
 }
 
-/* 最終更新なしのサーバーレイアウト（メンバー以上） */
-.server-layout-member-no-update {
+/* プレイヤー一覧対応のサーバーレイアウト */
+.server-layout-member-with-players,
+.server-layout-guest-with-players {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     grid-template-rows: auto auto;
@@ -517,15 +518,6 @@ body {
     border-radius: 8px;
 }
 
-/* 最終更新なしのサーバーレイアウト（一般権限） */
-.server-layout-guest-no-update {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: auto auto;
-    gap: 15px;
-    margin-top: 20px;
-}
-
 .server-application-full {
     grid-column: 1 / -1; /* 全幅 */
     background: #f8f9fa;
@@ -538,6 +530,68 @@ body {
     font-size: 1rem;
     line-height: 1.5;
     margin-top: 10px;
+}
+
+/* プレイヤー一覧表示スタイル */
+.server-players-list {
+    margin-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    padding-top: 15px;
+}
+
+.players-list-title {
+    color: #2c3e50;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.players-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.player-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+}
+
+.player-item:hover {
+    background: #e9ecef;
+}
+
+.player-skin {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background-color: #ddd;
+    border: 1px solid #ccc;
+    flex-shrink: 0;
+}
+
+.player-name {
+    font-size: 1rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.no-player-sample {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+    font-style: italic;
+}
+
+.no-sample-text {
+    font-size: 0.9rem;
 }
 
 /* +ボタン（完璧な中央配置修正版） */
@@ -858,8 +912,8 @@ body {
         bottom: 100px;
     }
 
-    .server-layout-member-no-update,
-    .server-layout-guest-no-update {
+    .server-layout-member-with-players,
+    .server-layout-guest-with-players {
         grid-template-columns: 1fr 1fr;
         gap: 10px;
     }
@@ -976,8 +1030,8 @@ body {
         top: -0.03em;
     }
 
-    .server-layout-member-no-update,
-    .server-layout-guest-no-update {
+    .server-layout-member-with-players,
+    .server-layout-guest-with-players {
         grid-template-columns: 1fr;
         gap: 10px;
     }
@@ -995,6 +1049,29 @@ body {
 
     .server-application-content {
         font-size: 0.9rem;
+    }
+
+    .players-container {
+        max-height: 200px;
+    }
+
+    .player-item {
+        padding: 6px 10px;
+        gap: 10px;
+    }
+
+    .player-skin {
+        width: 24px;
+        height: 24px;
+    }
+
+    .player-name {
+        font-size: 0.9rem;
+    }
+
+    .players-list-title {
+        font-size: 1.1rem;
+        margin-bottom: 12px;
     }
 }
 
@@ -1023,5 +1100,23 @@ body {
     .plus-icon {
         font-size: 1.6rem;
         top: -0.02em;
+    }
+
+    .players-container {
+        max-height: 150px;
+    }
+
+    .player-item {
+        padding: 5px 8px;
+        gap: 8px;
+    }
+
+    .player-skin {
+        width: 20px;
+        height: 20px;
+    }
+
+    .player-name {
+        font-size: 0.8rem;
     }
 }

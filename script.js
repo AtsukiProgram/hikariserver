@@ -19,7 +19,7 @@ const database = getDatabase(app);
 
 class LightServerWebsite {
     constructor() {
-        this.userMode = 'guest'; // 'guest', 'member', 'admin'
+        this.userMode = 'guest';
         this.currentPage = 'top';
         this.data = {
             news: [],
@@ -27,11 +27,11 @@ class LightServerWebsite {
             schedule: [],
             web: [],
             roadmap: [],
-            serverConfig: null // サーバー設定情報
+            serverConfig: null
         };
-        this.serverStatus = null; // サーバーステータス情報
-        this.modalType = 'add'; // 'add' or 'server-settings'
-        this.serverUpdateInterval = null; // サーバー更新インターバル
+        this.serverStatus = null;
+        this.modalType = 'add';
+        this.serverUpdateInterval = null;
 
         this.init();
     }
@@ -70,7 +70,6 @@ class LightServerWebsite {
 
             if (snapshot.exists()) {
                 const firebaseData = snapshot.val();
-                // データをマージ
                 Object.keys(this.data).forEach(key => {
                     this.data[key] = firebaseData[key] || (key === 'serverConfig' ? null : []);
                 });
@@ -78,14 +77,12 @@ class LightServerWebsite {
 
             this.renderCurrentPage();
 
-            // サーバー情報がある場合、ステータスを取得
             if (this.data.serverConfig && this.data.serverConfig.address) {
                 this.fetchServerStatus();
                 this.startServerStatusUpdates();
             }
         } catch (error) {
             console.error('Firebase データの読み込みに失敗:', error);
-            // エラー時はlocalStorageにフォールバック
             this.loadLocalData();
         }
     }
@@ -97,12 +94,10 @@ class LightServerWebsite {
             console.log('Firebase にデータを保存しました');
         } catch (error) {
             console.error('Firebase データの保存に失敗:', error);
-            // エラー時はlocalStorageにフォールバック
             this.saveLocalData();
         }
     }
 
-    // localStorageフォールバック用メソッド
     loadLocalData() {
         Object.keys(this.data).forEach(key => {
             if (key === 'serverConfig') {
@@ -125,33 +120,30 @@ class LightServerWebsite {
         });
     }
 
-    // 1tick間隔（50ms）でのリアルタイムサーバーステータス更新を開始
+    // 1tick間隔サーバー更新開始
     startServerStatusUpdates() {
-        // 既存のインターバルをクリア
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
         }
 
-        // 1tick = 50ms間隔で超高頻度更新
+        // 1tick = 50ms間隔
         this.serverUpdateInterval = setInterval(() => {
             if (this.data.serverConfig && this.data.serverConfig.address) {
                 this.fetchServerStatus();
             }
-        }, 50); // 50ms間隔（1tick）
+        }, 50);
 
-        console.log('1tick間隔サーバー更新開始: 50ms間隔（20回/秒）');
+        console.log('1tick間隔サーバー更新開始: 50ms間隔');
     }
 
-    // サーバーステータス更新を停止
     stopServerStatusUpdates() {
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
             this.serverUpdateInterval = null;
-            console.log('サーバー更新停止');
         }
     }
 
-    // プロキシサーバー対応Minecraftサーバーステータス取得（完全修正版）
+    // プロキシサーバー対応・エラー修正・プレイヤー一覧対応版
     async fetchServerStatus() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
@@ -161,130 +153,82 @@ class LightServerWebsite {
         const serverType = this.data.serverConfig.serverType;
 
         try {
-            // 複数のAPIを組み合わせて正確な情報を取得
-            const [mcApiResponse, minecraftResponse] = await Promise.all([
-                fetch(`https://api.mcsrvstat.us/3/${address}`),
-                fetch(`https://api.minecraft-server-list.com/server/${address}/json`)
-            ]);
-
-            const mcApiData = await mcApiResponse.json();
-            let minecraftData = null;
-
-            try {
-                minecraftData = await minecraftResponse.json();
-            } catch (e) {
-                console.log('セカンダリAPI取得失敗、メインAPIのみ使用');
-            }
+            // メインAPIのみ使用（エラー修正）
+            const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
+            const data = await response.json();
 
             let version = 'Unknown';
             let players = {
-                online: mcApiData.players ? mcApiData.players.online : 0,
-                max: mcApiData.players ? mcApiData.players.max : 0
+                online: data.players ? data.players.online : 0,
+                max: data.players ? data.players.max : 0,
+                sample: data.players && data.players.sample ? data.players.sample : []
             };
 
-            // プロキシサーバーの場合、ロビーサーバーの実際のバージョンを取得
+            // プロキシサーバーの場合
             if (serverType === 'BungeeCord' || serverType === 'Velocity') {
-                // プロキシサーバーの人数は全サーバーの合計
-                if (mcApiData.players) {
-                    players.online = mcApiData.players.online;
-                    players.max = mcApiData.players.max;
-                }
-
-                // セカンダリAPIから詳細情報を取得
-                if (minecraftData && minecraftData.version) {
-                    version = minecraftData.version;
-                } else if (mcApiData.version && !mcApiData.version.toLowerCase().includes('proxy') && !mcApiData.version.toLowerCase().includes('bungeecord') && !mcApiData.version.toLowerCase().includes('velocity')) {
-                    // プロキシではない実際のMinecraftバージョンの場合
-                    version = mcApiData.version;
-                } else {
-                    // プロトコルからロビーサーバーのバージョンを推測（最新マップ）
-                    const protocolVersion = mcApiData.protocol ? mcApiData.protocol.version : null;
-                    if (protocolVersion) {
-                        const exactVersionMap = {
-                            767: "1.21.4",
-                            766: "1.21.3",
-                            765: "1.21.1",
-                            764: "1.21",
-                            763: "1.20.1",
-                            762: "1.19.4",
-                            761: "1.19.3",
-                            760: "1.19.2",
-                            759: "1.19.1",
-                            758: "1.18.2",
-                            757: "1.18.1",
-                            756: "1.18",
-                            755: "1.17.1",
-                            754: "1.17",
-                            753: "1.16.5",
-                            751: "1.16.4",
-                            736: "1.16.1",
-                            735: "1.16",
-                            578: "1.15.2",
-                            575: "1.15.1",
-                            573: "1.15",
-                            498: "1.14.4",
-                            490: "1.14.3",
-                            485: "1.14.2",
-                            480: "1.14.1",
-                            477: "1.14",
-                            404: "1.13.2",
-                            401: "1.13.1",
-                            393: "1.13",
-                            340: "1.12.2",
-                            338: "1.12.1",
-                            335: "1.12",
-                            316: "1.11.2",
-                            315: "1.11",
-                            210: "1.10.2",
-                            110: "1.9.4",
-                            109: "1.9.2",
-                            108: "1.9.1",
-                            107: "1.9",
-                            47: "1.8.9"
-                        };
-
-                        if (exactVersionMap[protocolVersion]) {
-                            version = exactVersionMap[protocolVersion];
-                        } else {
-                            // 不明なプロトコルの場合、最新の推測
-                            version = protocolVersion > 767 ? "1.21.4+" : `Protocol ${protocolVersion}`;
-                        }
-                    } else {
-                        version = 'Unknown Version';
+                // プロキシ全体の人数
+                if (data.players) {
+                    players.online = data.players.online;
+                    players.max = data.players.max;
+                    // プレイヤーサンプルも含める
+                    if (data.players.sample) {
+                        players.sample = data.players.sample;
                     }
                 }
+
+                // ロビーサーバーの実際のバージョン
+                if (data.version && !data.version.toLowerCase().includes('proxy') &&
+                    !data.version.toLowerCase().includes('bungeecord') &&
+                    !data.version.toLowerCase().includes('velocity')) {
+                    version = data.version;
+                } else if (data.protocol && data.protocol.version) {
+                    // 最新プロトコルマップ
+                    const protocolMap = {
+                        767: "1.21.4",
+                        766: "1.21.3",
+                        765: "1.21.1",
+                        764: "1.21",
+                        763: "1.20.1",
+                        762: "1.19.4",
+                        761: "1.19.3",
+                        760: "1.19.2",
+                        759: "1.19.1",
+                        758: "1.18.2",
+                        757: "1.18.1",
+                        756: "1.18",
+                        755: "1.17.1",
+                        754: "1.17",
+                        753: "1.16.5"
+                    };
+                    version = protocolMap[data.protocol.version] || `Protocol ${data.protocol.version}`;
+                } else {
+                    version = `${serverType} Server`;
+                }
             } else {
-                // 通常のサーバーの場合
-                if (minecraftData && minecraftData.version) {
-                    version = minecraftData.version;
-                } else if (mcApiData.version) {
-                    version = mcApiData.version;
-                } else if (mcApiData.software && mcApiData.software.version) {
-                    version = mcApiData.software.version;
-                } else if (mcApiData.protocol && mcApiData.protocol.version) {
-                    const protocolVersion = mcApiData.protocol.version;
-                    const exactVersionMap = {
+                // 通常のサーバー
+                if (data.version) {
+                    version = data.version;
+                } else if (data.protocol && data.protocol.version) {
+                    const protocolMap = {
                         767: "1.21.4",
                         766: "1.21.3",
                         765: "1.21.1",
                         764: "1.21",
                         763: "1.20.1"
-                        // ... 他の mapping
                     };
-                    version = exactVersionMap[protocolVersion] || `Protocol ${protocolVersion}`;
+                    version = protocolMap[data.protocol.version] || `Protocol ${data.protocol.version}`;
                 } else {
                     version = 'Unknown';
                 }
             }
 
             this.serverStatus = {
-                online: mcApiData.online || false,
+                online: data.online || false,
                 players: players,
                 version: version,
-                motd: mcApiData.motd ? mcApiData.motd.clean : 'No MOTD'
+                motd: data.motd ? data.motd.clean : 'No MOTD'
             };
 
-            // サーバーページが表示中の場合、再レンダリング
             if (this.currentPage === 'server') {
                 this.renderServer();
             }
@@ -293,7 +237,7 @@ class LightServerWebsite {
             console.error('サーバーステータスの取得に失敗:', error);
             this.serverStatus = {
                 online: false,
-                players: { online: 0, max: 0 },
+                players: { online: 0, max: 0, sample: [] },
                 version: 'Status unavailable',
                 motd: 'Connection failed'
             };
@@ -306,8 +250,8 @@ class LightServerWebsite {
 
     // パスワード検証
     validatePassword(input) {
-        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113); // z9x1y5hq
-        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53); // x0hlt4i5
+        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113);
+        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53);
 
         if (input === memberPass) {
             return 'member';
@@ -318,15 +262,12 @@ class LightServerWebsite {
     }
 
     async init() {
-        // ログイン状態を復元
         this.loadLoginState();
-
         this.setupEventListeners();
-        await this.loadData(); // Firebase からデータを読み込み
+        await this.loadData();
         this.cleanExpiredSchedules();
 
-        console.log('光鯖公式ホームページ初期化完了（1tick更新版）');
-        console.log(`現在のログイン状態: ${this.userMode}`);
+        console.log('光鯖公式ホームページ初期化完了（プレイヤー一覧対応版）');
     }
 
     setupEventListeners() {
@@ -346,12 +287,10 @@ class LightServerWebsite {
             });
         });
 
-        // ハンバーガーメニュー
         document.getElementById('hamburger').addEventListener('click', () => {
             this.toggleMobileMenu();
         });
 
-        // モバイルメニューの外側クリックで閉じる
         document.addEventListener('click', (e) => {
             const navLinks = document.getElementById('nav-links');
             const hamburger = document.getElementById('hamburger');
@@ -361,19 +300,16 @@ class LightServerWebsite {
             }
         });
 
-        // +ボタン（add）
         document.getElementById('admin-plus-btn').addEventListener('click', () => {
             this.modalType = 'add';
             this.showAddModal();
         });
 
-        // 設定ボタン（set）
         document.getElementById('admin-set-btn').addEventListener('click', () => {
             this.modalType = 'server-settings';
             this.showServerSettingsModal();
         });
 
-        // モーダル関連
         document.getElementById('modal-close').addEventListener('click', () => {
             this.hideModal();
         });
@@ -396,25 +332,21 @@ class LightServerWebsite {
             }
         });
 
-        // ファイル選択
         document.getElementById('hidden-file-input').addEventListener('change', (e) => {
             this.handleFileSelect(e);
         });
 
-        // ページ離脱時にサーバー更新を停止
         window.addEventListener('beforeunload', () => {
             this.stopServerStatusUpdates();
         });
 
-        // ページフォーカス時にサーバー更新を再開
         window.addEventListener('focus', () => {
             if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
-                this.fetchServerStatus(); // 即座に更新
+                this.fetchServerStatus();
                 this.startServerStatusUpdates();
             }
         });
 
-        // ページ非フォーカス時も1tick更新継続
         window.addEventListener('blur', () => {
             console.log('ページ非アクティブ - 1tick更新継続中');
         });
@@ -447,12 +379,10 @@ class LightServerWebsite {
         this.renderCurrentPage();
         this.updateUI();
 
-        // サーバーページに移動した場合、1tick更新を開始
         if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
-            this.fetchServerStatus(); // 即座に更新
+            this.fetchServerStatus();
             this.startServerStatusUpdates();
         } else if (page !== 'server') {
-            // サーバーページ以外では更新を停止
             this.stopServerStatusUpdates();
         }
     }
@@ -460,7 +390,7 @@ class LightServerWebsite {
     handleOperation() {
         if (this.userMode !== 'guest') {
             this.userMode = 'guest';
-            this.saveLoginState(); // ログアウト状態を保存
+            this.saveLoginState();
             this.updateOperationButton();
             this.updateUI();
             alert('ログアウトしました');
@@ -470,7 +400,7 @@ class LightServerWebsite {
                 const mode = this.validatePassword(password);
                 if (mode) {
                     this.userMode = mode;
-                    this.saveLoginState(); // ログイン状態を保存
+                    this.saveLoginState();
                     this.updateOperationButton();
                     this.updateUI();
 
@@ -497,16 +427,14 @@ class LightServerWebsite {
         if (this.currentPage !== 'top') {
             if (this.userMode === 'admin') {
                 if (this.currentPage === 'server') {
-                    // SERVERページでは+ボタンを非表示、⚙ボタンを+ボタンの位置に表示
                     showPlusBtn = false;
                     showSetBtn = true;
                 } else {
-                    // 他のページでは通常通り+ボタン表示
                     showPlusBtn = true;
                     showSetBtn = false;
                 }
             } else if (this.userMode === 'member' && this.currentPage === 'member') {
-                showPlusBtn = true; // メンバー：MEMBERページのみ
+                showPlusBtn = true;
                 showSetBtn = false;
             }
         }
@@ -514,7 +442,6 @@ class LightServerWebsite {
         plusBtn.style.display = showPlusBtn ? 'flex' : 'none';
         setBtn.style.display = showSetBtn ? 'flex' : 'none';
 
-        // SERVERページで⚙ボタンを+ボタンの位置に移動
         if (this.currentPage === 'server' && showSetBtn) {
             setBtn.style.right = '30px';
             setBtn.style.bottom = '30px';
@@ -523,7 +450,6 @@ class LightServerWebsite {
             setBtn.style.bottom = '30px';
         }
 
-        // 削除ボタンの表示制御（管理者のみ）
         deleteButtons.forEach(btn => {
             btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
         });
@@ -582,7 +508,6 @@ class LightServerWebsite {
                 <button class="delete-btn" data-delete-type="member" data-delete-index="${index}">&times;</button>
             `;
 
-            // 削除ボタンにイベントリスナーを追加
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
                 deleteBtn.addEventListener('click', (e) => {
@@ -628,7 +553,6 @@ class LightServerWebsite {
                 <button class="delete-btn" data-delete-type="web" data-delete-index="${index}">&times;</button>
             `;
 
-            // 削除ボタンにイベントリスナーを追加
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
                 deleteBtn.addEventListener('click', (e) => {
@@ -647,15 +571,13 @@ class LightServerWebsite {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
 
-        // ロードマップ作成時に設定した日付順でソート（古い日付を上に表示）
         const sortedRoadmap = [...this.data.roadmap].sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
-            return dateA - dateB; // 昇順ソート（古い日付が上）
+            return dateA - dateB;
         });
 
         sortedRoadmap.forEach((item, sortedIndex) => {
-            // 元の配列でのインデックスを取得（削除機能用）
             const originalIndex = this.data.roadmap.findIndex(original =>
                 original.date === item.date &&
                 original.title === item.title &&
@@ -671,7 +593,6 @@ class LightServerWebsite {
                 <button class="delete-btn" data-delete-type="roadmap" data-delete-index="${originalIndex}">&times;</button>
             `;
 
-            // 削除ボタンにイベントリスナーを追加
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
                 deleteBtn.addEventListener('click', (e) => {
@@ -686,11 +607,11 @@ class LightServerWebsite {
         this.updateUI();
     }
 
+    // プレイヤー一覧表示対応版 renderServer()
     renderServer() {
         const container = document.getElementById('server-info');
 
         if (!this.data.serverConfig) {
-            // サーバー設定がない場合
             container.innerHTML = `
                 <div class="server-status-card">
                     <h3 style="text-align: center; color: #666; margin-bottom: 20px;">サーバー情報が設定されていません</h3>
@@ -707,7 +628,6 @@ class LightServerWebsite {
         let serverContent = '';
 
         if (!status) {
-            // ステータス読み込み中
             serverContent = `
                 <div class="server-status-card">
                     <div class="server-status-header">
@@ -718,11 +638,52 @@ class LightServerWebsite {
                 </div>
             `;
         } else {
-            // 権限による表示制御（最終更新表示削除版）
-            const showAddress = this.userMode !== 'guest'; // メンバー以上のみアドレス表示
+            const showAddress = this.userMode !== 'guest';
+
+            // プレイヤー一覧のHTML生成
+            let playerListHtml = '';
+            if (status.players && status.players.sample && status.players.sample.length > 0) {
+                playerListHtml = `
+                    <div class="server-players-list">
+                        <h4 class="players-list-title">参加プレイヤー</h4>
+                        <div class="players-container">
+                `;
+
+                status.players.sample.forEach(player => {
+                    // プレイヤースキン画像URL（複数のサービス対応）
+                    const skinUrl = `https://crafatar.com/avatars/${player.id}?size=32&overlay`;
+                    const fallbackUrl = `https://mc-heads.net/avatar/${player.id}/32`;
+
+                    playerListHtml += `
+                        <div class="player-item">
+                            <img src="${skinUrl}" 
+                                 alt="${player.name}" 
+                                 class="player-skin" 
+                                 onerror="this.onerror=null; this.src='${fallbackUrl}';">
+                            <span class="player-name">${player.name}</span>
+                        </div>
+                    `;
+                });
+
+                playerListHtml += `
+                        </div>
+                    </div>
+                `;
+            } else if (status.online && status.players.online > 0) {
+                playerListHtml = `
+                    <div class="server-players-list">
+                        <h4 class="players-list-title">参加プレイヤー</h4>
+                        <div class="players-container">
+                            <div class="no-player-sample">
+                                <span class="no-sample-text">プレイヤー情報を取得中...</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
             if (showAddress) {
-                // メンバー以上の表示形式（最終更新なし）
+                // メンバー以上の表示形式
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
@@ -730,7 +691,7 @@ class LightServerWebsite {
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
                         </div>
                         
-                        <div class="server-layout-member-no-update">
+                        <div class="server-layout-member-with-players">
                             <!-- 1行目: サーバーアドレス（全幅） -->
                             <div class="server-address-full">
                                 <div class="server-detail-label">サーバーアドレス</div>
@@ -753,10 +714,13 @@ class LightServerWebsite {
                                 <div class="server-detail-value">${config.serverType}</div>
                             </div>
                         </div>
+                        
+                        <!-- 3行目: プレイヤー一覧 -->
+                        ${playerListHtml}
                     </div>
                 `;
             } else {
-                // 一般権限の表示形式（最終更新なし）
+                // 一般権限の表示形式
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
@@ -764,7 +728,7 @@ class LightServerWebsite {
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
                         </div>
                         
-                        <div class="server-layout-guest-no-update">
+                        <div class="server-layout-guest-with-players">
                             <!-- 1行目: 応募（全幅） -->
                             <div class="server-application-full">
                                 <div class="server-detail-label">参加について</div>
@@ -787,6 +751,9 @@ class LightServerWebsite {
                                 <div class="server-detail-value">${config.serverType}</div>
                             </div>
                         </div>
+                        
+                        <!-- 3行目: プレイヤー一覧 -->
+                        ${playerListHtml}
                     </div>
                 `;
             }
@@ -814,7 +781,6 @@ class LightServerWebsite {
             <button class="delete-btn" data-delete-type="${type}" data-delete-index="${index}">&times;</button>
         `;
 
-        // 削除ボタンにイベントリスナーを追加
         const deleteBtn = element.querySelector('.delete-btn');
         if (deleteBtn) {
             deleteBtn.addEventListener('click', (e) => {
@@ -936,9 +902,7 @@ class LightServerWebsite {
 
         body.innerHTML = formHTML;
 
-        // MEMBERページの場合、ファイル選択ボタンとプレビューのイベントリスナーを設定
         if (this.currentPage === 'member') {
-            // 画像URL入力時のプレビュー
             const imageInput = document.getElementById('input-image');
             if (imageInput) {
                 imageInput.addEventListener('input', (e) => {
@@ -946,7 +910,6 @@ class LightServerWebsite {
                 });
             }
 
-            // ファイル選択ボタンのイベントリスナー
             const fileSelectBtn = document.getElementById('file-select-button');
             if (fileSelectBtn) {
                 fileSelectBtn.addEventListener('click', (e) => {
@@ -1075,7 +1038,7 @@ class LightServerWebsite {
         }
 
         this.data[this.currentPage].push(data);
-        await this.saveData(); // Firebase に保存
+        await this.saveData();
         this.renderCurrentPage();
         this.hideModal();
     }
@@ -1099,7 +1062,6 @@ class LightServerWebsite {
         await this.saveData();
         this.hideModal();
 
-        // サーバーステータスを取得して1tick更新を開始
         this.fetchServerStatus();
         this.startServerStatusUpdates();
 
@@ -1111,7 +1073,7 @@ class LightServerWebsite {
 
         if (confirm('削除しますか？')) {
             this.data[type].splice(index, 1);
-            await this.saveData(); // Firebase に保存
+            await this.saveData();
             this.renderCurrentPage();
         }
     }
@@ -1158,14 +1120,8 @@ class LightServerWebsite {
 // グローバルインスタンス
 let lightServer;
 
-// ページ読み込み時に初期化
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
-
-    // グローバルアクセス用
     window.lightServer = lightServer;
-
-    // デバッグ用ログ
-    console.log('Light Server Website initialized successfully! (1tick version)');
-    console.log('lightServer object is available globally:', !!window.lightServer);
+    console.log('Light Server Website initialized successfully! (プレイヤー一覧対応版)');
 });
