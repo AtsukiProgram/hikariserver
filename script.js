@@ -31,8 +31,35 @@ class LightServerWebsite {
         };
         this.serverStatus = null; // サーバーステータス情報
         this.modalType = 'add'; // 'add' or 'server-settings'
+        this.serverUpdateInterval = null; // サーバー更新インターバル
 
         this.init();
+    }
+
+    // ログイン状態をlocalStorageに保存
+    saveLoginState() {
+        localStorage.setItem('hikari_user_mode', this.userMode);
+    }
+
+    // ログイン状態をlocalStorageから復元
+    loadLoginState() {
+        const savedMode = localStorage.getItem('hikari_user_mode');
+        if (savedMode && savedMode !== 'guest') {
+            this.userMode = savedMode;
+            this.updateOperationButton();
+        }
+    }
+
+    // OPERATIONボタンの表示を更新
+    updateOperationButton() {
+        const operationBtn = document.getElementById('operationBtn');
+        if (this.userMode !== 'guest') {
+            operationBtn.querySelector('.nav-text').textContent = 'LOGOUT';
+            operationBtn.querySelector('.nav-japanese').textContent = 'ログアウト';
+        } else {
+            operationBtn.querySelector('.nav-text').textContent = 'OPERATION';
+            operationBtn.querySelector('.nav-japanese').textContent = '管理';
+        }
     }
 
     // Firebase からデータを読み込み
@@ -54,6 +81,7 @@ class LightServerWebsite {
             // サーバー情報がある場合、ステータスを取得
             if (this.data.serverConfig && this.data.serverConfig.address) {
                 this.fetchServerStatus();
+                this.startServerStatusUpdates();
             }
         } catch (error) {
             console.error('Firebase データの読み込みに失敗:', error);
@@ -87,6 +115,7 @@ class LightServerWebsite {
 
         if (this.data.serverConfig && this.data.serverConfig.address) {
             this.fetchServerStatus();
+            this.startServerStatusUpdates();
         }
     }
 
@@ -96,7 +125,30 @@ class LightServerWebsite {
         });
     }
 
-    // Minecraftサーバーステータス取得（プロキシ対応）
+    // リアルタイムサーバーステータス更新を開始
+    startServerStatusUpdates() {
+        // 既存のインターバルをクリア
+        if (this.serverUpdateInterval) {
+            clearInterval(this.serverUpdateInterval);
+        }
+
+        // 30秒間隔で更新（ほぼリアルタイム）
+        this.serverUpdateInterval = setInterval(() => {
+            if (this.data.serverConfig && this.data.serverConfig.address) {
+                this.fetchServerStatus();
+            }
+        }, 30000); // 30秒
+    }
+
+    // サーバーステータス更新を停止
+    stopServerStatusUpdates() {
+        if (this.serverUpdateInterval) {
+            clearInterval(this.serverUpdateInterval);
+            this.serverUpdateInterval = null;
+        }
+    }
+
+    // プロキシサーバー対応Minecraftサーバーステータス取得（改良版）
     async fetchServerStatus() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
@@ -112,20 +164,48 @@ class LightServerWebsite {
 
             let version = 'Unknown';
 
-            // プロキシサーバーの場合はロビーサーバーのバージョンを取得
+            // プロキシサーバーの場合の詳細なバージョン取得
             if (serverType === 'BungeeCord' || serverType === 'Velocity') {
-                // プロキシサーバーの場合、可能であればロビーサーバーの情報を取得
+                // プロキシサーバーの場合、複数の方法でロビーサーバーのバージョンを取得
                 if (data.version) {
                     version = data.version;
-                } else if (data.software) {
-                    version = data.software;
+                } else if (data.software && data.software.version) {
+                    version = data.software.version;
+                } else if (data.software && data.software.name) {
+                    version = data.software.name;
+                } else if (data.protocol && data.protocol.name) {
+                    version = data.protocol.name;
+                } else if (data.protocol && data.protocol.version) {
+                    // プロトコルバージョンから推測
+                    const protocolMap = {
+                        763: "1.20.1",
+                        762: "1.19.4",
+                        761: "1.19.3",
+                        760: "1.19.2",
+                        759: "1.19",
+                        758: "1.18.2",
+                        757: "1.18.1",
+                        756: "1.18",
+                        755: "1.17.1",
+                        754: "1.17",
+                        753: "1.16.5"
+                    };
+                    version = protocolMap[data.protocol.version] || `Protocol ${data.protocol.version}`;
                 } else {
-                    // プロキシの場合、一般的なロビーのバージョンを推測
-                    version = 'Proxy Server';
+                    // プロキシサーバー特有の表示
+                    version = `${serverType} Proxy`;
                 }
             } else {
                 // 通常のサーバーの場合
-                version = data.version || 'Unknown';
+                if (data.version) {
+                    version = data.version;
+                } else if (data.software && data.software.version) {
+                    version = data.software.version;
+                } else if (data.software && data.software.name) {
+                    version = data.software.name;
+                } else {
+                    version = 'Unknown';
+                }
             }
 
             this.serverStatus = {
@@ -136,21 +216,26 @@ class LightServerWebsite {
                 },
                 version: version,
                 motd: data.motd ? data.motd.clean : 'No MOTD',
-                lastUpdated: new Date().toLocaleTimeString('ja-JP')
+                lastUpdated: new Date().toLocaleTimeString('ja-JP'),
+                updateCount: (this.serverStatus?.updateCount || 0) + 1 // 更新回数カウント
             };
 
             // サーバーページが表示中の場合、再レンダリング
             if (this.currentPage === 'server') {
                 this.renderServer();
             }
+
+            console.log(`サーバーステータス更新 #${this.serverStatus.updateCount}: ${this.serverStatus.online ? 'オンライン' : 'オフライン'} (${this.serverStatus.players.online}/${this.serverStatus.players.max})`);
+
         } catch (error) {
             console.error('サーバーステータスの取得に失敗:', error);
             this.serverStatus = {
                 online: false,
                 players: { online: 0, max: 0 },
-                version: 'Unknown',
-                motd: 'Status unavailable',
-                lastUpdated: new Date().toLocaleTimeString('ja-JP')
+                version: 'Status unavailable',
+                motd: 'Connection failed',
+                lastUpdated: new Date().toLocaleTimeString('ja-JP'),
+                updateCount: (this.serverStatus?.updateCount || 0) + 1
             };
 
             if (this.currentPage === 'server') {
@@ -173,16 +258,15 @@ class LightServerWebsite {
     }
 
     async init() {
+        // ログイン状態を復元
+        this.loadLoginState();
+
         this.setupEventListeners();
         await this.loadData(); // Firebase からデータを読み込み
         this.cleanExpiredSchedules();
 
-        // サーバーステータスを定期的に更新（5分間隔）
-        setInterval(() => {
-            if (this.data.serverConfig && this.data.serverConfig.address) {
-                this.fetchServerStatus();
-            }
-        }, 300000);
+        console.log('光鯖公式ホームページ初期化完了');
+        console.log(`現在のログイン状態: ${this.userMode}`);
     }
 
     setupEventListeners() {
@@ -256,6 +340,32 @@ class LightServerWebsite {
         document.getElementById('hidden-file-input').addEventListener('change', (e) => {
             this.handleFileSelect(e);
         });
+
+        // ページ離脱時にサーバー更新を停止
+        window.addEventListener('beforeunload', () => {
+            this.stopServerStatusUpdates();
+        });
+
+        // ページフォーカス時にサーバー更新を再開
+        window.addEventListener('focus', () => {
+            if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
+                this.fetchServerStatus(); // 即座に更新
+                this.startServerStatusUpdates();
+            }
+        });
+
+        // ページ非フォーカス時は更新頻度を下げる
+        window.addEventListener('blur', () => {
+            if (this.serverUpdateInterval) {
+                clearInterval(this.serverUpdateInterval);
+                // 非アクティブ時は2分間隔に変更
+                this.serverUpdateInterval = setInterval(() => {
+                    if (this.data.serverConfig && this.data.serverConfig.address) {
+                        this.fetchServerStatus();
+                    }
+                }, 120000); // 2分
+            }
+        });
     }
 
     toggleMobileMenu() {
@@ -284,14 +394,22 @@ class LightServerWebsite {
         this.currentPage = page;
         this.renderCurrentPage();
         this.updateUI();
+
+        // サーバーページに移動した場合、リアルタイム更新を開始
+        if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
+            this.fetchServerStatus(); // 即座に更新
+            this.startServerStatusUpdates();
+        } else if (page !== 'server') {
+            // サーバーページ以外では更新を停止
+            this.stopServerStatusUpdates();
+        }
     }
 
     handleOperation() {
         if (this.userMode !== 'guest') {
             this.userMode = 'guest';
-            const operationBtn = document.getElementById('operationBtn');
-            operationBtn.querySelector('.nav-text').textContent = 'OPERATION';
-            operationBtn.querySelector('.nav-japanese').textContent = '管理';
+            this.saveLoginState(); // ログアウト状態を保存
+            this.updateOperationButton();
             this.updateUI();
             alert('ログアウトしました');
         } else {
@@ -300,9 +418,8 @@ class LightServerWebsite {
                 const mode = this.validatePassword(password);
                 if (mode) {
                     this.userMode = mode;
-                    const operationBtn = document.getElementById('operationBtn');
-                    operationBtn.querySelector('.nav-text').textContent = 'LOGOUT';
-                    operationBtn.querySelector('.nav-japanese').textContent = 'ログアウト';
+                    this.saveLoginState(); // ログイン状態を保存
+                    this.updateOperationButton();
                     this.updateUI();
 
                     if (mode === 'member') {
@@ -559,6 +676,10 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
+                            <div class="server-update-indicator">
+                                <span class="update-count">#${status.updateCount || 1}</span>
+                                <span class="realtime-label">リアルタイム更新</span>
+                            </div>
                         </div>
                         
                         <div class="server-layout-member">
@@ -599,6 +720,10 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
+                            <div class="server-update-indicator">
+                                <span class="update-count">#${status.updateCount || 1}</span>
+                                <span class="realtime-label">リアルタイム更新</span>
+                            </div>
                         </div>
                         
                         <div class="server-layout-guest">
@@ -942,8 +1067,9 @@ class LightServerWebsite {
         await this.saveData();
         this.hideModal();
 
-        // サーバーステータスを取得
+        // サーバーステータスを取得してリアルタイム更新を開始
         this.fetchServerStatus();
+        this.startServerStatusUpdates();
 
         alert('サーバー設定を保存しました');
     }

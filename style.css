@@ -381,6 +381,7 @@ body {
     display: flex;
     align-items: center;
     margin-bottom: 20px;
+    justify-content: flex-start;
 }
 
 .server-status-icon {
@@ -393,11 +394,13 @@ body {
 .server-status-online {
     background-color: #27ae60;
     box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+    animation: pulse-green 2s infinite;
 }
 
 .server-status-offline {
     background-color: #e74c3c;
     box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+    animation: pulse-red 2s infinite;
 }
 
 .server-status-title {
@@ -434,6 +437,8 @@ body {
 .server-players {
     font-weight: bold;
     color: #3498db;
+    font-size: 1.2rem;
+    animation: number-update 0.5s ease-in-out;
 }
 
 .server-application {
@@ -456,11 +461,42 @@ body {
     border-top: 3px solid #3498db;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    margin-right: 10px;
 }
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-green {
+    0% {
+        box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(39, 174, 96, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(39, 174, 96, 0);
+    }
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+    }
+}
+
+@keyframes number-update {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); color: #2980b9; }
+    100% { transform: scale(1); }
 }
 
 /* サーバー情報の新しいレイアウト（メンバー以上） */
@@ -511,7 +547,29 @@ body {
     margin-top: 10px;
 }
 
-/* +ボタン（文字版・完璧な中央配置修正版） */
+/* リアルタイム更新表示 */
+.server-update-indicator {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 0.8rem;
+    color: #7f8c8d;
+}
+
+.update-count {
+    font-weight: bold;
+    color: #3498db;
+    font-size: 0.9rem;
+}
+
+.realtime-label {
+    font-size: 0.7rem;
+    color: #27ae60;
+    margin-top: 2px;
+}
+
+/* +ボタン（完璧な中央配置修正版） */
 .plus-btn {
     position: fixed;
     bottom: 30px;
@@ -555,8 +613,8 @@ body {
     margin: 0;
     padding: 0;
 
-    /* 行の高さを1に設定 */
-    line-height: 1;
+    /* 行の高さを1に設定して完璧な中央配置 */
+    line-height: 0.8;
 
     /* テキストの中央揃え */
     text-align: center;
@@ -564,12 +622,15 @@ body {
     /* 垂直方向の中央揃えを確実にする */
     vertical-align: middle;
 
-    /* +記号の位置を完璧に中央に調整（修正版） */
+    /* +記号を完璧に中央に配置（修正版） */
     position: relative;
-    top: 0px; /* 中央配置のため0pxに修正 */
+    top: -0.05em; /* フォントの基線調整で完璧な中央に */
 
     /* フォントファミリー指定 */
     font-family: 'Segoe UI', Arial, sans-serif;
+
+    /* レタースペーシングで位置微調整 */
+    letter-spacing: 0;
 }
 
 .plus-btn:hover {
@@ -941,6 +1002,7 @@ body {
 
     .plus-icon {
         font-size: 1.8rem;
+        top: -0.03em;
     }
 
     .server-layout-member,
@@ -964,6 +1026,18 @@ body {
     .server-application-content {
         font-size: 0.9rem;
     }
+
+    .server-update-indicator {
+        font-size: 0.7rem;
+    }
+
+    .update-count {
+        font-size: 0.8rem;
+    }
+
+    .realtime-label {
+        font-size: 0.6rem;
+    }
 }
 
 /* 小さなモバイル */
@@ -986,5 +1060,14 @@ body {
 
     .nav-japanese {
         font-size: 0.6rem;
+    }
+
+    .server-update-indicator {
+        display: none; /* 小さな画面では非表示 */
+    }
+
+    .plus-icon {
+        font-size: 1.6rem;
+        top: -0.02em;
     }
 }
