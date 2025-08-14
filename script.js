@@ -125,19 +125,21 @@ class LightServerWebsite {
         });
     }
 
-    // リアルタイムサーバーステータス更新を開始
+    // 高頻度リアルタイムサーバーステータス更新を開始
     startServerStatusUpdates() {
         // 既存のインターバルをクリア
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
         }
 
-        // 30秒間隔で更新（ほぼリアルタイム）
+        // 5秒間隔で高頻度更新（リアルタイムに近い）
         this.serverUpdateInterval = setInterval(() => {
             if (this.data.serverConfig && this.data.serverConfig.address) {
                 this.fetchServerStatus();
             }
-        }, 30000); // 30秒
+        }, 5000); // 5秒間隔（実用的なリアルタイム）
+
+        console.log('リアルタイムサーバー更新開始: 5秒間隔');
     }
 
     // サーバーステータス更新を停止
@@ -145,10 +147,11 @@ class LightServerWebsite {
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
             this.serverUpdateInterval = null;
+            console.log('サーバー更新停止');
         }
     }
 
-    // プロキシサーバー対応Minecraftサーバーステータス取得（改良版）
+    // プロキシサーバー対応Minecraftサーバーステータス取得（ロビーバージョン対応版）
     async fetchServerStatus() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
@@ -164,36 +167,62 @@ class LightServerWebsite {
 
             let version = 'Unknown';
 
-            // プロキシサーバーの場合の詳細なバージョン取得
+            // プロキシサーバーの場合、ロビーサーバーのバージョンを優先取得
             if (serverType === 'BungeeCord' || serverType === 'Velocity') {
-                // プロキシサーバーの場合、複数の方法でロビーサーバーのバージョンを取得
-                if (data.version) {
+                // プロキシサーバーの場合、ロビーサーバーの情報を取得
+                if (data.version && !data.version.includes('Proxy') && !data.version.includes('BungeeCord') && !data.version.includes('Velocity')) {
+                    // 実際のMinecraftバージョンが取得できた場合（ロビーサーバーのバージョン）
                     version = data.version;
-                } else if (data.software && data.software.version) {
+                } else if (data.software && data.software.version && !data.software.version.includes('Proxy')) {
                     version = data.software.version;
-                } else if (data.software && data.software.name) {
-                    version = data.software.name;
-                } else if (data.protocol && data.protocol.name) {
-                    version = data.protocol.name;
+                } else if (data.players && data.players.sample && data.players.sample.length > 0) {
+                    // プレイヤーサンプルからバージョン情報を推測
+                    version = `${serverType} (Players: ${data.players.online})`;
                 } else if (data.protocol && data.protocol.version) {
-                    // プロトコルバージョンから推測
+                    // プロトコルバージョンからMinecraftバージョンを推測（ロビーサーバー用）
                     const protocolMap = {
+                        767: "1.21.4",
+                        766: "1.21.3",
+                        765: "1.21.1",
+                        764: "1.21",
                         763: "1.20.1",
                         762: "1.19.4",
                         761: "1.19.3",
                         760: "1.19.2",
-                        759: "1.19",
+                        759: "1.19.1",
                         758: "1.18.2",
                         757: "1.18.1",
                         756: "1.18",
                         755: "1.17.1",
                         754: "1.17",
-                        753: "1.16.5"
+                        753: "1.16.5",
+                        751: "1.16.4",
+                        736: "1.16.1",
+                        735: "1.16",
+                        578: "1.15.2",
+                        575: "1.15",
+                        498: "1.14.4",
+                        477: "1.14",
+                        404: "1.13.2",
+                        393: "1.13",
+                        340: "1.12.2",
+                        335: "1.12",
+                        316: "1.11.2",
+                        315: "1.11",
+                        210: "1.10.2",
+                        110: "1.9.4",
+                        109: "1.9.2",
+                        108: "1.9",
+                        47: "1.8.9"
                     };
-                    version = protocolMap[data.protocol.version] || `Protocol ${data.protocol.version}`;
+                    const minecraftVersion = protocolMap[data.protocol.version];
+                    if (minecraftVersion) {
+                        version = `${minecraftVersion} (Lobby)`;
+                    } else {
+                        version = `Protocol ${data.protocol.version} (Lobby)`;
+                    }
                 } else {
-                    // プロキシサーバー特有の表示
-                    version = `${serverType} Proxy`;
+                    version = `${serverType} Lobby`;
                 }
             } else {
                 // 通常のサーバーの場合
@@ -203,6 +232,25 @@ class LightServerWebsite {
                     version = data.software.version;
                 } else if (data.software && data.software.name) {
                     version = data.software.name;
+                } else if (data.protocol && data.protocol.version) {
+                    const protocolMap = {
+                        767: "1.21.4",
+                        766: "1.21.3",
+                        765: "1.21.1",
+                        764: "1.21",
+                        763: "1.20.1",
+                        762: "1.19.4",
+                        761: "1.19.3",
+                        760: "1.19.2",
+                        759: "1.19.1",
+                        758: "1.18.2",
+                        757: "1.18.1",
+                        756: "1.18",
+                        755: "1.17.1",
+                        754: "1.17",
+                        753: "1.16.5"
+                    };
+                    version = protocolMap[data.protocol.version] || `Protocol ${data.protocol.version}`;
                 } else {
                     version = 'Unknown';
                 }
@@ -216,16 +264,13 @@ class LightServerWebsite {
                 },
                 version: version,
                 motd: data.motd ? data.motd.clean : 'No MOTD',
-                lastUpdated: new Date().toLocaleTimeString('ja-JP'),
-                updateCount: (this.serverStatus?.updateCount || 0) + 1 // 更新回数カウント
+                lastUpdated: new Date().toLocaleTimeString('ja-JP')
             };
 
             // サーバーページが表示中の場合、再レンダリング
             if (this.currentPage === 'server') {
                 this.renderServer();
             }
-
-            console.log(`サーバーステータス更新 #${this.serverStatus.updateCount}: ${this.serverStatus.online ? 'オンライン' : 'オフライン'} (${this.serverStatus.players.online}/${this.serverStatus.players.max})`);
 
         } catch (error) {
             console.error('サーバーステータスの取得に失敗:', error);
@@ -234,8 +279,7 @@ class LightServerWebsite {
                 players: { online: 0, max: 0 },
                 version: 'Status unavailable',
                 motd: 'Connection failed',
-                lastUpdated: new Date().toLocaleTimeString('ja-JP'),
-                updateCount: (this.serverStatus?.updateCount || 0) + 1
+                lastUpdated: new Date().toLocaleTimeString('ja-JP')
             };
 
             if (this.currentPage === 'server') {
@@ -354,17 +398,10 @@ class LightServerWebsite {
             }
         });
 
-        // ページ非フォーカス時は更新頻度を下げる
+        // ページ非フォーカス時も継続（リアルタイム維持）
         window.addEventListener('blur', () => {
-            if (this.serverUpdateInterval) {
-                clearInterval(this.serverUpdateInterval);
-                // 非アクティブ時は2分間隔に変更
-                this.serverUpdateInterval = setInterval(() => {
-                    if (this.data.serverConfig && this.data.serverConfig.address) {
-                        this.fetchServerStatus();
-                    }
-                }, 120000); // 2分
-            }
+            // リアルタイム更新を継続するため、停止しない
+            console.log('ページ非アクティブ - リアルタイム更新継続中');
         });
     }
 
@@ -666,7 +703,7 @@ class LightServerWebsite {
                 </div>
             `;
         } else {
-            // 権限による表示制御と新しいレイアウト
+            // 権限による表示制御と新しいレイアウト（リアルタイム表示削除版）
             const showAddress = this.userMode !== 'guest'; // メンバー以上のみアドレス表示
 
             if (showAddress) {
@@ -676,10 +713,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="server-update-indicator">
-                                <span class="update-count">#${status.updateCount || 1}</span>
-                                <span class="realtime-label">リアルタイム更新</span>
-                            </div>
                         </div>
                         
                         <div class="server-layout-member">
@@ -720,10 +753,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="server-update-indicator">
-                                <span class="update-count">#${status.updateCount || 1}</span>
-                                <span class="realtime-label">リアルタイム更新</span>
-                            </div>
                         </div>
                         
                         <div class="server-layout-guest">
