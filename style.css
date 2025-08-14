@@ -463,7 +463,55 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* +ボタン（文字版・完璧な中央配置） */
+/* サーバー情報の新しいレイアウト（メンバー以上） */
+.server-layout-member {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.server-address-full {
+    grid-column: 1 / -1; /* 全幅 */
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.server-players-section,
+.server-version-section,
+.server-type-section,
+.server-updated-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+/* サーバー情報の新しいレイアウト（一般権限） */
+.server-layout-guest {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.server-application-full {
+    grid-column: 1 / -1; /* 全幅 */
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.server-application-content {
+    color: #2c3e50;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-top: 10px;
+}
+
+/* +ボタン（文字版・完璧な中央配置修正版） */
 .plus-btn {
     position: fixed;
     bottom: 30px;
@@ -516,9 +564,9 @@ body {
     /* 垂直方向の中央揃えを確実にする */
     vertical-align: middle;
 
-    /* +記号の位置を微調整 */
+    /* +記号の位置を完璧に中央に調整（修正版） */
     position: relative;
-    top: -1px; /* 視覚的な中央揃えのための微調整 */
+    top: 0px; /* 中央配置のため0pxに修正 */
 
     /* フォントファミリー指定 */
     font-family: 'Segoe UI', Arial, sans-serif;
@@ -591,6 +639,12 @@ body {
 .set-btn:hover {
     transform: scale(1.1);
     background: #7f8c8d;
+}
+
+/* SERVERページでの⚙ボタン位置調整 */
+.set-btn.server-page-position {
+    right: 30px !important;
+    bottom: 30px !important;
 }
 
 /* モーダル */
@@ -771,6 +825,17 @@ body {
         right: 30px;
         bottom: 100px;
     }
+
+    .server-layout-member,
+    .server-layout-guest {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .server-address-full,
+    .server-application-full {
+        grid-column: 1;
+    }
 }
 
 /* レスポンシブ（モバイル） */
@@ -876,6 +941,28 @@ body {
 
     .plus-icon {
         font-size: 1.8rem;
+    }
+
+    .server-layout-member,
+    .server-layout-guest {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .server-address-full,
+    .server-application-full {
+        grid-column: 1;
+    }
+
+    .server-players-section,
+    .server-version-section,
+    .server-type-section,
+    .server-updated-section {
+        padding: 12px;
+    }
+
+    .server-application-content {
+        font-size: 0.9rem;
     }
 }
 

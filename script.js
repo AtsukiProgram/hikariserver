@@ -96,18 +96,37 @@ class LightServerWebsite {
         });
     }
 
-    // Minecraftサーバーステータス取得
+    // Minecraftサーバーステータス取得（プロキシ対応）
     async fetchServerStatus() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
         }
 
         const address = this.data.serverConfig.address;
+        const serverType = this.data.serverConfig.serverType;
 
         try {
             // MCApi.us を使用してサーバーステータスを取得
             const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
             const data = await response.json();
+
+            let version = 'Unknown';
+
+            // プロキシサーバーの場合はロビーサーバーのバージョンを取得
+            if (serverType === 'BungeeCord' || serverType === 'Velocity') {
+                // プロキシサーバーの場合、可能であればロビーサーバーの情報を取得
+                if (data.version) {
+                    version = data.version;
+                } else if (data.software) {
+                    version = data.software;
+                } else {
+                    // プロキシの場合、一般的なロビーのバージョンを推測
+                    version = 'Proxy Server';
+                }
+            } else {
+                // 通常のサーバーの場合
+                version = data.version || 'Unknown';
+            }
 
             this.serverStatus = {
                 online: data.online || false,
@@ -115,7 +134,7 @@ class LightServerWebsite {
                     online: data.players ? data.players.online : 0,
                     max: data.players ? data.players.max : 0
                 },
-                version: data.version || 'Unknown',
+                version: version,
                 motd: data.motd ? data.motd.clean : 'No MOTD',
                 lastUpdated: new Date().toLocaleTimeString('ja-JP')
             };
@@ -142,8 +161,8 @@ class LightServerWebsite {
 
     // パスワード検証
     validatePassword(input) {
-        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113);
-        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53);
+        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113); // z9x1y5hq
+        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53); // x0hlt4i5
 
         if (input === memberPass) {
             return 'member';
@@ -308,17 +327,32 @@ class LightServerWebsite {
 
         if (this.currentPage !== 'top') {
             if (this.userMode === 'admin') {
-                showPlusBtn = true; // 管理者：全ページ
                 if (this.currentPage === 'server') {
-                    showSetBtn = true; // 管理者：サーバーページで設定ボタン表示
+                    // SERVERページでは+ボタンを非表示、⚙ボタンを+ボタンの位置に表示
+                    showPlusBtn = false;
+                    showSetBtn = true;
+                } else {
+                    // 他のページでは通常通り+ボタン表示
+                    showPlusBtn = true;
+                    showSetBtn = false;
                 }
             } else if (this.userMode === 'member' && this.currentPage === 'member') {
                 showPlusBtn = true; // メンバー：MEMBERページのみ
+                showSetBtn = false;
             }
         }
 
         plusBtn.style.display = showPlusBtn ? 'flex' : 'none';
         setBtn.style.display = showSetBtn ? 'flex' : 'none';
+
+        // SERVERページで⚙ボタンを+ボタンの位置に移動
+        if (this.currentPage === 'server' && showSetBtn) {
+            setBtn.style.right = '30px';
+            setBtn.style.bottom = '30px';
+        } else {
+            setBtn.style.right = '100px';
+            setBtn.style.bottom = '30px';
+        }
 
         // 削除ボタンの表示制御（管理者のみ）
         deleteButtons.forEach(btn => {
@@ -420,7 +454,7 @@ class LightServerWebsite {
             const iconSrc = `${item.platform}.png`;
 
             element.innerHTML = `
-                <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDE�IDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
+                <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDEwIDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
                 <div class="web-title">${item.title}</div>
                 <button class="delete-btn" data-delete-type="web" data-delete-index="${index}">&times;</button>
             `;
@@ -515,53 +549,90 @@ class LightServerWebsite {
                 </div>
             `;
         } else {
-            // 権限による表示制御
+            // 権限による表示制御と新しいレイアウト
             const showAddress = this.userMode !== 'guest'; // メンバー以上のみアドレス表示
 
-            serverContent = `
-                <div class="server-status-card">
-                    <div class="server-status-header">
-                        <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
-                        <h3 class="server-status-title">${status.online ? 'サーバーオンライン' : 'サーバーオフライン'}</h3>
-                    </div>
-                    
-                    <div class="server-details">
-                        ${showAddress ? `
-                            <div class="server-detail-item">
+            if (showAddress) {
+                // メンバー以上の表示形式
+                serverContent = `
+                    <div class="server-status-card">
+                        <div class="server-status-header">
+                            <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
+                            <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
+                        </div>
+                        
+                        <div class="server-layout-member">
+                            <!-- 1行目: サーバーアドレス（全幅） -->
+                            <div class="server-address-full">
                                 <div class="server-detail-label">サーバーアドレス</div>
                                 <div class="server-detail-value">${config.address}</div>
                             </div>
-                        ` : ''}
-                        
-                        <div class="server-detail-item">
-                            <div class="server-detail-label">参加人数</div>
-                            <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
-                        </div>
-                        
-                        <div class="server-detail-item">
-                            <div class="server-detail-label">サーバー種類</div>
-                            <div class="server-detail-value">${config.serverType}</div>
-                        </div>
-                        
-                        <div class="server-detail-item">
-                            <div class="server-detail-label">バージョン</div>
-                            <div class="server-detail-value">${status.version}</div>
-                        </div>
-                        
-                        <div class="server-detail-item">
-                            <div class="server-detail-label">最終更新</div>
-                            <div class="server-detail-value">${status.lastUpdated}</div>
+                            
+                            <!-- 2行目: 人数とバージョン -->
+                            <div class="server-players-section">
+                                <div class="server-detail-label">参加人数</div>
+                                <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                            </div>
+                            
+                            <div class="server-version-section">
+                                <div class="server-detail-label">バージョン</div>
+                                <div class="server-detail-value">${status.version}</div>
+                            </div>
+                            
+                            <!-- 3行目: サーバー種類と最終更新 -->
+                            <div class="server-type-section">
+                                <div class="server-detail-label">サーバー種類</div>
+                                <div class="server-detail-value">${config.serverType}</div>
+                            </div>
+                            
+                            <div class="server-updated-section">
+                                <div class="server-detail-label">最終更新</div>
+                                <div class="server-detail-value">${status.lastUpdated}</div>
+                            </div>
                         </div>
                     </div>
-                    
-                    ${!showAddress && config.application ? `
-                        <div class="server-application">
-                            <h4>参加について</h4>
-                            <div>${this.parseDiscordMarkdown(config.application)}</div>
+                `;
+            } else {
+                // 一般権限の表示形式
+                serverContent = `
+                    <div class="server-status-card">
+                        <div class="server-status-header">
+                            <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
+                            <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
                         </div>
-                    ` : ''}
-                </div>
-            `;
+                        
+                        <div class="server-layout-guest">
+                            <!-- 1行目: 応募（全幅） -->
+                            <div class="server-application-full">
+                                <div class="server-detail-label">参加について</div>
+                                <div class="server-application-content">${this.parseDiscordMarkdown(config.application || '参加方法については管理者にお問い合わせください。')}</div>
+                            </div>
+                            
+                            <!-- 2行目: 人数とバージョン -->
+                            <div class="server-players-section">
+                                <div class="server-detail-label">参加人数</div>
+                                <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                            </div>
+                            
+                            <div class="server-version-section">
+                                <div class="server-detail-label">バージョン</div>
+                                <div class="server-detail-value">${status.version}</div>
+                            </div>
+                            
+                            <!-- 3行目: サーバー種類と最終更新 -->
+                            <div class="server-type-section">
+                                <div class="server-detail-label">サーバー種類</div>
+                                <div class="server-detail-value">${config.serverType}</div>
+                            </div>
+                            
+                            <div class="server-updated-section">
+                                <div class="server-detail-label">最終更新</div>
+                                <div class="server-detail-value">${status.lastUpdated}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         container.innerHTML = serverContent;
