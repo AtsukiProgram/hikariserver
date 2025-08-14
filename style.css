@@ -363,7 +363,7 @@ body {
     color: #555;
 }
 
-/* +ボタン（完全中央配置修正版） */
+/* +ボタン（完璧な中央配置修正版） */
 .plus-btn {
     position: fixed;
     bottom: 30px;
@@ -377,26 +377,58 @@ body {
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
     transition: transform 0.3s ease;
     z-index: 998;
-    /* 完全中央配置のためのフレックス設定 */
+
+    /* 完璧な中央配置のための設定 */
     display: flex;
     align-items: center;
     justify-content: center;
+
+    /* ボタン内の余白を完全に削除 */
+    padding: 0;
+    margin: 0;
+    border: none;
+
+    /* テキスト設定 */
+    font-size: 0;
+    line-height: 0;
 }
 
 .plus-icon {
+    /* フォントサイズと太さ */
     font-size: 2rem;
     font-weight: bold;
-    line-height: 1;
-    /* 完全中央配置保証 */
+
+    /* 完璧な中央配置保証 */
     display: flex;
     align-items: center;
     justify-content: center;
+
+    /* サイズを親要素に合わせる */
+    width: 100%;
+    height: 100%;
+
+    /* 全ての余白とパディングを削除 */
     margin: 0;
     padding: 0;
-    /* ブラウザ間の互換性確保 */
+
+    /* 行の高さを1に設定 */
+    line-height: 1;
+
+    /* テキストの中央揃え */
     text-align: center;
+
+    /* 垂直方向の中央揃えを確実にする */
     vertical-align: middle;
+
+    /* +記号の位置を微調整 */
+    position: relative;
+    top: -1px; /* 視覚的な中央揃えのための微調整 */
 }
+
+.plus-btn:hover {
+    transform: scale(1.1);
+}
+
 
 .plus-btn:hover {
     transform: scale(1.1);
