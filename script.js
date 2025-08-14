@@ -28,7 +28,7 @@ class LightServerWebsite {
             web: [],
             roadmap: []
         };
-        
+
         this.init();
     }
 
@@ -37,7 +37,7 @@ class LightServerWebsite {
         try {
             const dbRef = ref(database);
             const snapshot = await get(child(dbRef, '/'));
-            
+
             if (snapshot.exists()) {
                 const firebaseData = snapshot.val();
                 // データをマージ
@@ -45,7 +45,7 @@ class LightServerWebsite {
                     this.data[key] = firebaseData[key] || [];
                 });
             }
-            
+
             this.renderCurrentPage();
         } catch (error) {
             console.error('Firebase データの読み込みに失敗:', error);
@@ -82,9 +82,9 @@ class LightServerWebsite {
 
     // パスワード検証
     validatePassword(input) {
-        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113); // z9x1y5hq
-        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53); // x0hlt4i5
-        
+        const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113);
+        const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53);
+
         if (input === memberPass) {
             return 'member';
         } else if (input === adminPass) {
@@ -105,13 +105,13 @@ class LightServerWebsite {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const page = link.dataset.page;
-                
+
                 if (page === 'operation') {
                     this.handleOperation();
                 } else {
                     this.showPage(page);
                 }
-                
+
                 this.closeMobileMenu();
             });
         });
@@ -125,7 +125,7 @@ class LightServerWebsite {
         document.addEventListener('click', (e) => {
             const navLinks = document.getElementById('nav-links');
             const hamburger = document.getElementById('hamburger');
-            
+
             if (!navLinks.contains(e.target) && !hamburger.contains(e.target)) {
                 this.closeMobileMenu();
             }
@@ -140,11 +140,11 @@ class LightServerWebsite {
         document.getElementById('modal-close').addEventListener('click', () => {
             this.hideModal();
         });
-        
+
         document.getElementById('modal-cancel').addEventListener('click', () => {
             this.hideModal();
         });
-        
+
         document.getElementById('modal-submit').addEventListener('click', () => {
             this.handleModalSubmit();
         });
@@ -164,7 +164,7 @@ class LightServerWebsite {
     toggleMobileMenu() {
         const navLinks = document.getElementById('nav-links');
         const hamburger = document.getElementById('hamburger');
-        
+
         navLinks.classList.toggle('active');
         hamburger.classList.toggle('active');
     }
@@ -172,7 +172,7 @@ class LightServerWebsite {
     closeMobileMenu() {
         const navLinks = document.getElementById('nav-links');
         const hamburger = document.getElementById('hamburger');
-        
+
         navLinks.classList.remove('active');
         hamburger.classList.remove('active');
     }
@@ -180,10 +180,10 @@ class LightServerWebsite {
     showPage(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        
+
         document.getElementById(`${page}-page`).classList.add('active');
         document.querySelector(`[data-page="${page}"]`).classList.add('active');
-        
+
         this.currentPage = page;
         this.renderCurrentPage();
         this.updateUI();
@@ -207,7 +207,7 @@ class LightServerWebsite {
                     operationBtn.querySelector('.nav-text').textContent = 'LOGOUT';
                     operationBtn.querySelector('.nav-japanese').textContent = 'ログアウト';
                     this.updateUI();
-                    
+
                     if (mode === 'member') {
                         alert('メンバーモードをONにしました');
                     } else if (mode === 'admin') {
@@ -223,7 +223,7 @@ class LightServerWebsite {
     updateUI() {
         const plusBtn = document.getElementById('admin-plus-btn');
         const deleteButtons = document.querySelectorAll('.delete-btn');
-        
+
         let showPlusBtn = false;
         if (this.currentPage !== 'top') {
             if (this.userMode === 'admin') {
@@ -232,9 +232,9 @@ class LightServerWebsite {
                 showPlusBtn = true;
             }
         }
-        
+
         plusBtn.style.display = showPlusBtn ? 'flex' : 'none';
-        
+
         deleteButtons.forEach(btn => {
             btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
         });
@@ -289,7 +289,7 @@ class LightServerWebsite {
                 </div>
                 <button class="delete-btn" data-delete-type="member" data-delete-index="${index}">&times;</button>
             `;
-            
+
             // 削除ボタンにイベントリスナーを追加（修正版）
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
@@ -298,7 +298,7 @@ class LightServerWebsite {
                     this.deleteItem('member', index);
                 });
             }
-            
+
             container.appendChild(element);
         });
 
@@ -327,15 +327,15 @@ class LightServerWebsite {
             const element = document.createElement('div');
             element.className = 'web-item';
             element.onclick = () => window.open(item.url, '_blank');
-            
+
             const iconSrc = `${item.platform}.png`;
-            
+
             element.innerHTML = `
                 <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDEwIDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
                 <div class="web-title">${item.title}</div>
                 <button class="delete-btn" data-delete-type="web" data-delete-index="${index}">&times;</button>
             `;
-            
+
             // 削除ボタンにイベントリスナーを追加
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
@@ -344,7 +344,7 @@ class LightServerWebsite {
                     this.deleteItem('web', index);
                 });
             }
-            
+
             container.appendChild(element);
         });
 
@@ -364,9 +364,9 @@ class LightServerWebsite {
 
         sortedRoadmap.forEach((item, sortedIndex) => {
             // 元の配列でのインデックスを取得（削除機能用）
-            const originalIndex = this.data.roadmap.findIndex(original => 
-                original.date === item.date && 
-                original.title === item.title && 
+            const originalIndex = this.data.roadmap.findIndex(original =>
+                original.date === item.date &&
+                original.title === item.title &&
                 original.content === item.content
             );
 
@@ -378,7 +378,7 @@ class LightServerWebsite {
                 <div class="roadmap-content">${this.parseDiscordMarkdown(item.content)}</div>
                 <button class="delete-btn" data-delete-type="roadmap" data-delete-index="${originalIndex}">&times;</button>
             `;
-            
+
             // 削除ボタンにイベントリスナーを追加
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
@@ -387,7 +387,7 @@ class LightServerWebsite {
                     this.deleteItem('roadmap', originalIndex);
                 });
             }
-            
+
             container.appendChild(element);
         });
 
@@ -397,21 +397,21 @@ class LightServerWebsite {
     createContentElement(item, type, index) {
         const element = document.createElement('div');
         element.className = 'content-item';
-        
+
         let dateLabel = '';
         if (type === 'schedule') {
             dateLabel = `予定日: ${item.date}`;
         } else {
             dateLabel = item.date;
         }
-        
+
         element.innerHTML = `
             <h3>${item.title}</h3>
             <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
             <div class="content-date">${dateLabel}</div>
             <button class="delete-btn" data-delete-type="${type}" data-delete-index="${index}">&times;</button>
         `;
-        
+
         // 削除ボタンにイベントリスナーを追加
         const deleteBtn = element.querySelector('.delete-btn');
         if (deleteBtn) {
@@ -420,7 +420,7 @@ class LightServerWebsite {
                 this.deleteItem(type, index);
             });
         }
-        
+
         return element;
     }
 
@@ -433,7 +433,7 @@ class LightServerWebsite {
         const body = document.getElementById('modal-body');
 
         let formHTML = '';
-        
+
         switch (this.currentPage) {
             case 'news':
                 if (this.userMode !== 'admin') return;
@@ -533,7 +533,7 @@ class LightServerWebsite {
         }
 
         body.innerHTML = formHTML;
-        
+
         // MEMBERページの場合、ファイル選択ボタンとプレビューのイベントリスナーを設定
         if (this.currentPage === 'member') {
             // 画像URL入力時のプレビュー
@@ -543,7 +543,7 @@ class LightServerWebsite {
                     this.updateImagePreview(e.target.value);
                 });
             }
-            
+
             // ファイル選択ボタンのイベントリスナー（修正版）
             const fileSelectBtn = document.getElementById('file-select-button');
             if (fileSelectBtn) {
@@ -553,7 +553,7 @@ class LightServerWebsite {
                 });
             }
         }
-        
+
         modal.style.display = 'flex';
     }
 
@@ -595,7 +595,7 @@ class LightServerWebsite {
 
     async handleModalSubmit() {
         const data = {};
-        
+
         switch (this.currentPage) {
             case 'news':
                 data.title = document.getElementById('input-title').value;
@@ -639,7 +639,7 @@ class LightServerWebsite {
 
     async deleteItem(type, index) {
         if (this.userMode !== 'admin') return;
-        
+
         if (confirm('削除しますか？')) {
             this.data[type].splice(index, 1);
             await this.saveData(); // Firebase に保存
@@ -650,14 +650,14 @@ class LightServerWebsite {
     async cleanExpiredSchedules() {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
+
         const originalLength = this.data.schedule.length;
         this.data.schedule = this.data.schedule.filter(item => {
             const scheduleDate = new Date(item.date);
             const scheduleDay = new Date(scheduleDate.getFullYear(), scheduleDate.getMonth(), scheduleDate.getDate());
             return scheduleDay >= today;
         });
-        
+
         if (this.data.schedule.length !== originalLength) {
             await this.saveData();
         }
@@ -665,23 +665,23 @@ class LightServerWebsite {
 
     parseDiscordMarkdown(text) {
         if (!text) return '';
-        
+
         text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        
+
         text = text.replace(/^### (.+)$/gm, '<strong>$1</strong>');
         text = text.replace(/^## (.+)$/gm, '<h3>$1</h3>');
         text = text.replace(/^# (.+)$/gm, '<h2>$1</h2>');
-        
+
         text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        
+
         text = text.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.style.color=\'#dcddde\'">$1</span>');
-        
+
         text = text.replace(/^-# (.+)$/gm, '<small>$1</small>');
-        
+
         text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>');
-        
+
         text = text.replace(/\n/g, '<br>');
-        
+
         return text;
     }
 }
@@ -692,10 +692,10 @@ let lightServer;
 // ページ読み込み時に初期化（修正版）
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
-    
+
     // グローバルアクセス用（inline onClickイベントやコンソールからのアクセス用）
     window.lightServer = lightServer;
-    
+
     // デバッグ用ログ
     console.log('Light Server Website initialized successfully!');
     console.log('lightServer object is available globally:', !!window.lightServer);
