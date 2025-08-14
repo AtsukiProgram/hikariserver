@@ -363,7 +363,107 @@ body {
     color: #555;
 }
 
-/* +ボタン（完璧な中央配置修正版） */
+/* サーバー情報表示 */
+.server-info {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.server-status-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.server-status-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.server-status-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.server-status-online {
+    background-color: #27ae60;
+    box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+}
+
+.server-status-offline {
+    background-color: #e74c3c;
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+
+.server-status-title {
+    font-size: 1.5rem;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.server-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.server-detail-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.server-detail-label {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.server-detail-value {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    word-break: break-all;
+}
+
+.server-players {
+    font-weight: bold;
+    color: #3498db;
+}
+
+.server-application {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.server-application h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* +ボタン（文字版・完璧な中央配置） */
 .plus-btn {
     position: fixed;
     bottom: 30px;
@@ -378,24 +478,20 @@ body {
     transition: transform 0.3s ease;
     z-index: 998;
 
-    /* 完璧な中央配置のための設定 */
+    /* 完璧な中央配置 */
     display: flex;
     align-items: center;
     justify-content: center;
 
-    /* ボタン内の余白を完全に削除 */
+    /* 全ての余白を削除 */
     padding: 0;
     margin: 0;
     border: none;
-
-    /* テキスト設定 */
-    font-size: 0;
-    line-height: 0;
 }
 
 .plus-icon {
     /* フォントサイズと太さ */
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: bold;
 
     /* 完璧な中央配置保証 */
@@ -423,15 +519,78 @@ body {
     /* +記号の位置を微調整 */
     position: relative;
     top: -1px; /* 視覚的な中央揃えのための微調整 */
+
+    /* フォントファミリー指定 */
+    font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .plus-btn:hover {
     transform: scale(1.1);
 }
 
+/* setボタン（絵文字版・完璧な中央配置） */
+.set-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 100px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #95a5a6;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(149, 165, 166, 0.4);
+    transition: transform 0.3s ease;
+    z-index: 998;
 
-.plus-btn:hover {
+    /* 完璧な中央配置 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* 全ての余白を削除 */
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
+.set-icon {
+    /* 絵文字のフォントサイズ */
+    font-size: 1.8rem;
+
+    /* 完璧な中央配置保証 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* サイズを親要素に合わせる */
+    width: 100%;
+    height: 100%;
+
+    /* 全ての余白とパディングを削除 */
+    margin: 0;
+    padding: 0;
+
+    /* 行の高さを1に設定 */
+    line-height: 1;
+
+    /* テキストの中央揃え */
+    text-align: center;
+
+    /* 垂直方向の中央揃えを確実にする */
+    vertical-align: middle;
+
+    /* 絵文字の位置を微調整 */
+    position: relative;
+    top: 0px; /* 絵文字は通常調整不要 */
+
+    /* 絵文字フォント指定 */
+    font-family: 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
+}
+
+.set-btn:hover {
     transform: scale(1.1);
+    background: #7f8c8d;
 }
 
 /* モーダル */
@@ -603,6 +762,15 @@ body {
     .web-grid {
         max-width: 600px;
     }
+
+    .server-details {
+        grid-template-columns: 1fr;
+    }
+
+    .set-btn {
+        right: 30px;
+        bottom: 100px;
+    }
 }
 
 /* レスポンシブ（モバイル） */
@@ -687,6 +855,27 @@ body {
     .file-input-wrapper {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .set-btn {
+        right: 20px;
+        bottom: 100px;
+        width: 50px;
+        height: 50px;
+    }
+
+    .plus-btn {
+        right: 20px;
+        width: 50px;
+        height: 50px;
+    }
+
+    .set-icon {
+        font-size: 1.4rem;
+    }
+
+    .plus-icon {
+        font-size: 1.8rem;
     }
 }
 

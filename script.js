@@ -26,8 +26,11 @@ class LightServerWebsite {
             member: [],
             schedule: [],
             web: [],
-            roadmap: []
+            roadmap: [],
+            serverConfig: null // サーバー設定情報
         };
+        this.serverStatus = null; // サーバーステータス情報
+        this.modalType = 'add'; // 'add' or 'server-settings'
 
         this.init();
     }
@@ -42,11 +45,16 @@ class LightServerWebsite {
                 const firebaseData = snapshot.val();
                 // データをマージ
                 Object.keys(this.data).forEach(key => {
-                    this.data[key] = firebaseData[key] || [];
+                    this.data[key] = firebaseData[key] || (key === 'serverConfig' ? null : []);
                 });
             }
 
             this.renderCurrentPage();
+
+            // サーバー情報がある場合、ステータスを取得
+            if (this.data.serverConfig && this.data.serverConfig.address) {
+                this.fetchServerStatus();
+            }
         } catch (error) {
             console.error('Firebase データの読み込みに失敗:', error);
             // エラー時はlocalStorageにフォールバック
@@ -69,15 +77,67 @@ class LightServerWebsite {
     // localStorageフォールバック用メソッド
     loadLocalData() {
         Object.keys(this.data).forEach(key => {
-            this.data[key] = JSON.parse(localStorage.getItem(key) || '[]');
+            if (key === 'serverConfig') {
+                this.data[key] = JSON.parse(localStorage.getItem(key) || 'null');
+            } else {
+                this.data[key] = JSON.parse(localStorage.getItem(key) || '[]');
+            }
         });
         this.renderCurrentPage();
+
+        if (this.data.serverConfig && this.data.serverConfig.address) {
+            this.fetchServerStatus();
+        }
     }
 
     saveLocalData() {
         Object.keys(this.data).forEach(key => {
             localStorage.setItem(key, JSON.stringify(this.data[key]));
         });
+    }
+
+    // Minecraftサーバーステータス取得
+    async fetchServerStatus() {
+        if (!this.data.serverConfig || !this.data.serverConfig.address) {
+            return;
+        }
+
+        const address = this.data.serverConfig.address;
+
+        try {
+            // MCApi.us を使用してサーバーステータスを取得
+            const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
+            const data = await response.json();
+
+            this.serverStatus = {
+                online: data.online || false,
+                players: {
+                    online: data.players ? data.players.online : 0,
+                    max: data.players ? data.players.max : 0
+                },
+                version: data.version || 'Unknown',
+                motd: data.motd ? data.motd.clean : 'No MOTD',
+                lastUpdated: new Date().toLocaleTimeString('ja-JP')
+            };
+
+            // サーバーページが表示中の場合、再レンダリング
+            if (this.currentPage === 'server') {
+                this.renderServer();
+            }
+        } catch (error) {
+            console.error('サーバーステータスの取得に失敗:', error);
+            this.serverStatus = {
+                online: false,
+                players: { online: 0, max: 0 },
+                version: 'Unknown',
+                motd: 'Status unavailable',
+                lastUpdated: new Date().toLocaleTimeString('ja-JP')
+            };
+
+            if (this.currentPage === 'server') {
+                this.renderServer();
+            }
+        }
     }
 
     // パスワード検証
@@ -97,6 +157,13 @@ class LightServerWebsite {
         this.setupEventListeners();
         await this.loadData(); // Firebase からデータを読み込み
         this.cleanExpiredSchedules();
+
+        // サーバーステータスを定期的に更新（5分間隔）
+        setInterval(() => {
+            if (this.data.serverConfig && this.data.serverConfig.address) {
+                this.fetchServerStatus();
+            }
+        }, 300000);
     }
 
     setupEventListeners() {
@@ -131,9 +198,16 @@ class LightServerWebsite {
             }
         });
 
-        // +ボタン
+        // +ボタン（add）
         document.getElementById('admin-plus-btn').addEventListener('click', () => {
+            this.modalType = 'add';
             this.showAddModal();
+        });
+
+        // 設定ボタン（set）
+        document.getElementById('admin-set-btn').addEventListener('click', () => {
+            this.modalType = 'server-settings';
+            this.showServerSettingsModal();
         });
 
         // モーダル関連
@@ -146,7 +220,11 @@ class LightServerWebsite {
         });
 
         document.getElementById('modal-submit').addEventListener('click', () => {
-            this.handleModalSubmit();
+            if (this.modalType === 'server-settings') {
+                this.handleServerSettingsSubmit();
+            } else {
+                this.handleModalSubmit();
+            }
         });
 
         document.getElementById('modal-overlay').addEventListener('click', (e) => {
@@ -222,19 +300,27 @@ class LightServerWebsite {
 
     updateUI() {
         const plusBtn = document.getElementById('admin-plus-btn');
+        const setBtn = document.getElementById('admin-set-btn');
         const deleteButtons = document.querySelectorAll('.delete-btn');
 
         let showPlusBtn = false;
+        let showSetBtn = false;
+
         if (this.currentPage !== 'top') {
             if (this.userMode === 'admin') {
-                showPlusBtn = true;
+                showPlusBtn = true; // 管理者：全ページ
+                if (this.currentPage === 'server') {
+                    showSetBtn = true; // 管理者：サーバーページで設定ボタン表示
+                }
             } else if (this.userMode === 'member' && this.currentPage === 'member') {
-                showPlusBtn = true;
+                showPlusBtn = true; // メンバー：MEMBERページのみ
             }
         }
 
         plusBtn.style.display = showPlusBtn ? 'flex' : 'none';
+        setBtn.style.display = showSetBtn ? 'flex' : 'none';
 
+        // 削除ボタンの表示制御（管理者のみ）
         deleteButtons.forEach(btn => {
             btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
         });
@@ -256,6 +342,9 @@ class LightServerWebsite {
                 break;
             case 'roadmap':
                 this.renderRoadmap();
+                break;
+            case 'server':
+                this.renderServer();
                 break;
         }
     }
@@ -290,7 +379,7 @@ class LightServerWebsite {
                 <button class="delete-btn" data-delete-type="member" data-delete-index="${index}">&times;</button>
             `;
 
-            // 削除ボタンにイベントリスナーを追加（修正版）
+            // 削除ボタンにイベントリスナーを追加
             const deleteBtn = element.querySelector('.delete-btn');
             if (deleteBtn) {
                 deleteBtn.addEventListener('click', (e) => {
@@ -331,7 +420,7 @@ class LightServerWebsite {
             const iconSrc = `${item.platform}.png`;
 
             element.innerHTML = `
-                <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDEwIDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
+                <img src="${iconSrc}" alt="${item.platform}" class="web-icon" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iOCIgZmlsbD0iIzM0OThEQiIvPgo8cGF0aCBkPSJNMjAgMTBDMTYuNjg2MyAxMCAxNCAxMi42ODYzIDE0IDE2VjI0QzE0IDI3LjMxMzcgMTYuNjg2MyAzMCAyMCAzMEMyMy4zMTM3IDMwIDI2IDI3LjMxMzcgMjYgMjRWMTZDMjYgMTIuNjg2MyAyMy4zMTM3IDE�IDIwIDEwWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg=='">
                 <div class="web-title">${item.title}</div>
                 <button class="delete-btn" data-delete-type="web" data-delete-index="${index}">&times;</button>
             `;
@@ -355,7 +444,7 @@ class LightServerWebsite {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
 
-        // ロードマップ作成時に設定した日付順でソート（古い日付を上に表示）[13][16]
+        // ロードマップ作成時に設定した日付順でソート（古い日付を上に表示）
         const sortedRoadmap = [...this.data.roadmap].sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
@@ -391,6 +480,91 @@ class LightServerWebsite {
             container.appendChild(element);
         });
 
+        this.updateUI();
+    }
+
+    renderServer() {
+        const container = document.getElementById('server-info');
+
+        if (!this.data.serverConfig) {
+            // サーバー設定がない場合
+            container.innerHTML = `
+                <div class="server-status-card">
+                    <h3 style="text-align: center; color: #666; margin-bottom: 20px;">サーバー情報が設定されていません</h3>
+                    <p style="text-align: center; color: #888;">管理者がサーバー設定を行う必要があります。</p>
+                </div>
+            `;
+            this.updateUI();
+            return;
+        }
+
+        const config = this.data.serverConfig;
+        const status = this.serverStatus;
+
+        let serverContent = '';
+
+        if (!status) {
+            // ステータス読み込み中
+            serverContent = `
+                <div class="server-status-card">
+                    <div class="server-status-header">
+                        <div class="loading-spinner"></div>
+                        <h3 class="server-status-title">サーバー状態を確認中...</h3>
+                    </div>
+                    <p>サーバー情報を取得しています。しばらくお待ちください。</p>
+                </div>
+            `;
+        } else {
+            // 権限による表示制御
+            const showAddress = this.userMode !== 'guest'; // メンバー以上のみアドレス表示
+
+            serverContent = `
+                <div class="server-status-card">
+                    <div class="server-status-header">
+                        <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
+                        <h3 class="server-status-title">${status.online ? 'サーバーオンライン' : 'サーバーオフライン'}</h3>
+                    </div>
+                    
+                    <div class="server-details">
+                        ${showAddress ? `
+                            <div class="server-detail-item">
+                                <div class="server-detail-label">サーバーアドレス</div>
+                                <div class="server-detail-value">${config.address}</div>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="server-detail-item">
+                            <div class="server-detail-label">参加人数</div>
+                            <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                        </div>
+                        
+                        <div class="server-detail-item">
+                            <div class="server-detail-label">サーバー種類</div>
+                            <div class="server-detail-value">${config.serverType}</div>
+                        </div>
+                        
+                        <div class="server-detail-item">
+                            <div class="server-detail-label">バージョン</div>
+                            <div class="server-detail-value">${status.version}</div>
+                        </div>
+                        
+                        <div class="server-detail-item">
+                            <div class="server-detail-label">最終更新</div>
+                            <div class="server-detail-value">${status.lastUpdated}</div>
+                        </div>
+                    </div>
+                    
+                    ${!showAddress && config.application ? `
+                        <div class="server-application">
+                            <h4>参加について</h4>
+                            <div>${this.parseDiscordMarkdown(config.application)}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        container.innerHTML = serverContent;
         this.updateUI();
     }
 
@@ -544,7 +718,7 @@ class LightServerWebsite {
                 });
             }
 
-            // ファイル選択ボタンのイベントリスナー（修正版）
+            // ファイル選択ボタンのイベントリスナー
             const fileSelectBtn = document.getElementById('file-select-button');
             if (fileSelectBtn) {
                 fileSelectBtn.addEventListener('click', (e) => {
@@ -554,6 +728,47 @@ class LightServerWebsite {
             }
         }
 
+        modal.style.display = 'flex';
+    }
+
+    showServerSettingsModal() {
+        if (this.userMode !== 'admin') return;
+
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+
+        title.textContent = 'サーバー設定';
+
+        const config = this.data.serverConfig || {};
+
+        const formHTML = `
+            <div class="form-group">
+                <label>サーバーアドレス</label>
+                <input type="text" id="server-address" value="${config.address || ''}" placeholder="例: play.example.com" required>
+            </div>
+            <div class="form-group">
+                <label>サーバー種類</label>
+                <select id="server-type" required>
+                    <option value="">選択してください</option>
+                    <option value="BungeeCord" ${config.serverType === 'BungeeCord' ? 'selected' : ''}>BungeeCord</option>
+                    <option value="Velocity" ${config.serverType === 'Velocity' ? 'selected' : ''}>Velocity</option>
+                    <option value="Paper" ${config.serverType === 'Paper' ? 'selected' : ''}>Paper</option>
+                    <option value="Purpur" ${config.serverType === 'Purpur' ? 'selected' : ''}>Purpur</option>
+                    <option value="Fabric" ${config.serverType === 'Fabric' ? 'selected' : ''}>Fabric</option>
+                    <option value="Forge" ${config.serverType === 'Forge' ? 'selected' : ''}>Forge</option>
+                    <option value="Vanilla" ${config.serverType === 'Vanilla' ? 'selected' : ''}>Vanilla</option>
+                    <option value="Spigot" ${config.serverType === 'Spigot' ? 'selected' : ''}>Spigot</option>
+                    <option value="Bukkit" ${config.serverType === 'Bukkit' ? 'selected' : ''}>Bukkit</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>応募・参加方法</label>
+                <textarea id="server-application" placeholder="Discord記法が使用できます。一般権限のユーザーには、サーバーアドレスの代わりにここの内容が表示されます。">${config.application || ''}</textarea>
+            </div>
+        `;
+
+        body.innerHTML = formHTML;
         modal.style.display = 'flex';
     }
 
@@ -637,6 +852,31 @@ class LightServerWebsite {
         this.hideModal();
     }
 
+    async handleServerSettingsSubmit() {
+        const address = document.getElementById('server-address').value;
+        const serverType = document.getElementById('server-type').value;
+        const application = document.getElementById('server-application').value;
+
+        if (!address || !serverType) {
+            alert('サーバーアドレスとサーバー種類は必須です');
+            return;
+        }
+
+        this.data.serverConfig = {
+            address: address,
+            serverType: serverType,
+            application: application
+        };
+
+        await this.saveData();
+        this.hideModal();
+
+        // サーバーステータスを取得
+        this.fetchServerStatus();
+
+        alert('サーバー設定を保存しました');
+    }
+
     async deleteItem(type, index) {
         if (this.userMode !== 'admin') return;
 
@@ -686,14 +926,14 @@ class LightServerWebsite {
     }
 }
 
-// グローバルインスタンス（修正版：確実にwindowオブジェクトに追加）
+// グローバルインスタンス
 let lightServer;
 
-// ページ読み込み時に初期化（修正版）
+// ページ読み込み時に初期化
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
 
-    // グローバルアクセス用（inline onClickイベントやコンソールからのアクセス用）
+    // グローバルアクセス用
     window.lightServer = lightServer;
 
     // デバッグ用ログ
