@@ -438,7 +438,7 @@ body {
     font-weight: bold;
     color: #3498db;
     font-size: 1.2rem;
-    transition: all 0.05s ease-in-out; /* 1tick対応の高速トランジション */
+    transition: all 0.1s ease-out; /* 超高頻度更新対応の短いトランジション */
 }
 
 .server-application {
@@ -493,6 +493,35 @@ body {
     }
 }
 
+/* リアルタイム更新表示強化 */
+.realtime-indicator {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.realtime-badge {
+    background: #27ae60;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    animation: pulse-badge 1s infinite;
+}
+
+.update-source {
+    font-size: 0.6rem;
+    color: #666;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
 /* プレイヤー一覧対応のサーバーレイアウト */
 .server-layout-member-with-players,
 .server-layout-guest-with-players {
@@ -532,7 +561,7 @@ body {
     margin-top: 10px;
 }
 
-/* プレイヤー一覧表示スタイル */
+/* プレイヤー一覧表示スタイル（強化版） */
 .server-players-list {
     margin-top: 20px;
     border-top: 1px solid #e0e0e0;
@@ -557,15 +586,17 @@ body {
 .player-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     padding: 8px 12px;
     background: #f8f9fa;
     border-radius: 8px;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
+    border-left: 3px solid #27ae60;
 }
 
 .player-item:hover {
     background: #e9ecef;
+    transform: translateX(2px);
 }
 
 .player-skin {
@@ -583,6 +614,13 @@ body {
     font-weight: 500;
 }
 
+.player-status {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: #27ae60;
+    font-weight: 500;
+}
+
 .no-player-sample {
     text-align: center;
     padding: 20px;
@@ -592,6 +630,42 @@ body {
 
 .no-sample-text {
     font-size: 0.9rem;
+}
+
+.large-player-count {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.player-count-label {
+    font-size: 1rem;
+    color: #666;
+    margin-left: 8px;
+}
+
+.player-count-display {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.player-sample-note {
+    margin-top: 10px;
+}
+
+.sample-help {
+    font-size: 0.8rem;
+    color: #888;
+    font-style: italic;
+    display: block;
+    margin-top: 5px;
+}
+
+.empty-server-message {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    padding: 20px;
 }
 
 /* +ボタン（完璧な中央配置修正版） */
@@ -922,6 +996,15 @@ body {
     .server-application-full {
         grid-column: 1 / -1;
     }
+
+    .realtime-badge {
+        font-size: 0.6rem;
+        padding: 1px 4px;
+    }
+
+    .update-source {
+        font-size: 0.5rem;
+    }
 }
 
 /* レスポンシブ（モバイル） */
@@ -1073,6 +1156,14 @@ body {
         font-size: 1.1rem;
         margin-bottom: 12px;
     }
+
+    .realtime-indicator {
+        display: none; /* モバイルでは非表示 */
+    }
+
+    .large-player-count {
+        font-size: 1.5rem;
+    }
 }
 
 /* 小さなモバイル */
@@ -1118,5 +1209,13 @@ body {
 
     .player-name {
         font-size: 0.8rem;
+    }
+
+    .large-player-count {
+        font-size: 1.2rem;
+    }
+
+    .player-count-label {
+        font-size: 0.9rem;
     }
 }
