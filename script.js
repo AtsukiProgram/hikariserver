@@ -120,20 +120,20 @@ class LightServerWebsite {
         });
     }
 
-    // リアルタイム更新システム（1秒間隔）
+    // リアルタイム更新システム（API制限対応：5秒間隔）
     startServerStatusUpdates() {
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
         }
 
-        // 1000ms間隔で更新（1回/秒）
+        // 5000ms間隔で更新（API制限を考慮）
         this.serverUpdateInterval = setInterval(() => {
             if (this.data.serverConfig && this.data.serverConfig.address) {
                 this.fetchServerStatus();
             }
-        }, 1000); // 1000ms間隔（1回/秒のリアルタイム）
+        }, 5000); // 5秒間隔（API制限対応）
 
-        console.log('リアルタイムサーバー更新開始: 1秒間隔（1回/秒）');
+        console.log('サーバー更新開始: 5秒間隔（API制限対応）');
     }
 
     stopServerStatusUpdates() {
@@ -143,7 +143,7 @@ class LightServerWebsite {
         }
     }
 
-    // サーバーステータス取得（冗長化・高精度対応）
+    // サーバーステータス取得（API制限対応版）
     async fetchServerStatus() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
@@ -153,28 +153,29 @@ class LightServerWebsite {
         const serverType = this.data.serverConfig.serverType;
 
         try {
-            // 複数APIを並列で取得して最も正確な情報を使用
-            const apiPromises = [
-                fetch(`https://api.mcsrvstat.us/3/${address}`).then(r => r.json()),
-                fetch(`https://mcapi.us/server/status?ip=${address}`).then(r => r.json()),
-                fetch(`https://api.mcsrvstat.us/query/${address}`).then(r => r.json()) // Query API併用
-            ];
+            // API制限対応：1つのAPIのみ使用し、エラーハンドリング強化
+            const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
 
-            const results = await Promise.allSettled(apiPromises);
-
-            // 成功したAPIレスポンスを取得
-            const successfulResults = results
-                .filter(result => result.status === 'fulfilled')
-                .map(result => result.value)
-                .filter(data => data && (data.online !== undefined || data.status === 'success'));
-
-            if (successfulResults.length === 0) {
-                throw new Error('All APIs failed');
+            // 429エラー（Too Many Requests）の処理
+            if (response.status === 429) {
+                console.warn('API制限に達しました。60秒後に再試行します。');
+                // 60秒間リクエストを停止
+                setTimeout(() => {
+                    this.updateFailureCount = 0;
+                    console.log('API制限解除、リクエスト再開');
+                }, 60000);
+                return;
             }
 
-            // 最も信頼性の高い情報を選択
-            const primaryData = successfulResults.find(data => data.online !== undefined) || successfulResults[0];
-            const queryData = successfulResults.find(data => data.players && data.players.list) || null;
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (!data || data.online === undefined) {
+                throw new Error('Invalid API response');
+            }
 
             let version = 'Unknown';
             let players = {
@@ -183,40 +184,31 @@ class LightServerWebsite {
                 sample: []
             };
 
-            // 人数情報の冗長化取得
-            if (primaryData.players) {
-                players.online = primaryData.players.online || primaryData.players.now || 0;
-                players.max = primaryData.players.max || 0;
+            // 人数情報の取得
+            if (data.players) {
+                players.online = data.players.online || 0;
+                players.max = data.players.max || 0;
 
-                // プレイヤーサンプルの取得（複数ソース）
-                if (primaryData.players.sample && primaryData.players.sample.length > 0) {
-                    players.sample = primaryData.players.sample;
-                } else if (queryData && queryData.players && queryData.players.list) {
-                    // Query APIからプレイヤーリストを取得
-                    players.sample = queryData.players.list.map(name => ({
-                        name: name,
-                        id: this.generateFakeUUID(name) // UUIDが無い場合は生成
-                    }));
+                // プレイヤーサンプルの取得
+                if (data.players.sample && data.players.sample.length > 0) {
+                    players.sample = data.players.sample;
                 }
             }
 
-            // プロキシサーバーの正確なバージョン取得
+            // バージョン情報の取得
             if (serverType === 'BungeeCord' || serverType === 'Velocity') {
-                // 複数の方法でロビーサーバーの実際のバージョンを取得
-                version = this.extractProxyLobbyVersion(successfulResults, serverType);
+                version = this.extractProxyLobbyVersion([data], serverType);
             } else {
-                // 通常サーバーのバージョン取得
-                version = this.extractServerVersion(successfulResults);
+                version = this.extractServerVersion([data]);
             }
 
             // サーバーステータス更新
             this.serverStatus = {
-                online: primaryData.online || primaryData.status === 'success',
+                online: data.online || false,
                 players: players,
                 version: version,
-                motd: primaryData.motd ? (primaryData.motd.clean || primaryData.motd) : 'No MOTD',
+                motd: data.motd ? (data.motd.clean || data.motd) : 'No MOTD',
                 lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
-                // updateSource削除
             };
 
             // 更新成功をカウント
@@ -234,7 +226,7 @@ class LightServerWebsite {
             // 連続失敗時は前回の成功データを保持
             if (this.updateFailureCount < this.maxFailures && this.serverStatus) {
                 console.warn(`API取得失敗 ${this.updateFailureCount}/${this.maxFailures} - 前回データを保持`);
-                return; // 前回のデータを保持
+                return;
             }
 
             // 完全失敗時のフォールバック
@@ -244,7 +236,6 @@ class LightServerWebsite {
                 version: 'Status unavailable',
                 motd: 'Connection failed',
                 lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
-                // updateSource削除
             };
 
             if (this.currentPage === 'server') {
@@ -253,95 +244,133 @@ class LightServerWebsite {
         }
     }
 
-    // プロキシサーバーのロビーバージョン正確抽出
+    // プロキシサーバーのロビーバージョン正確抽出（最終修正版）
     extractProxyLobbyVersion(results, serverType) {
         for (const data of results) {
-            // 1. 直接的なMinecraftバージョンを探す
-            if (data.version &&
-                !data.version.toLowerCase().includes('proxy') &&
-                !data.version.toLowerCase().includes('bungeecord') &&
-                !data.version.toLowerCase().includes('velocity') &&
-                !data.version.toLowerCase().includes('waterfall')) {
+            // 1. protocol.name から直接取得（mcsrvstat.us APIで最も正確）
+            if (data.protocol && data.protocol.name) {
+                // protocol.nameは最も信頼性の高い情報源
+                return `v${data.protocol.name}`;
+            }
 
-                // 実際のMinecraftバージョンが見つかった場合
-                if (data.version.match(/1\.\d+(\.\d+)?/)) {
-                    return data.version;
+            // 2. version文字列からの正確な抽出
+            if (data.version) {
+                // Minecraftバージョンの正規表現（より厳密に）
+                const minecraftVersionRegex = /(?:^|[^\d])1\.(\d{1,2})(?:\.(\d{1,2}))?(?:[^\d]|$)/;
+                const match = data.version.match(minecraftVersionRegex);
+
+                if (match) {
+                    const majorVersion = match[1];
+                    const patchVersion = match[2];
+
+                    if (patchVersion) {
+                        return `v1.${majorVersion}.${patchVersion}`;
+                    } else {
+                        return `v1.${majorVersion}`;
+                    }
                 }
             }
 
-            // 2. Softwareフィールドからロビーサーバー情報を抽出
-            if (data.software && data.software.version) {
-                const softwareVersion = data.software.version;
-                if (softwareVersion.match(/1\.\d+(\.\d+)?/) &&
-                    !softwareVersion.toLowerCase().includes('proxy')) {
-                    return softwareVersion;
+            // 3. software情報からバージョンを抽出
+            if (data.software) {
+                const softwareVersionMatch = data.software.match(/1\.(\d{1,2})(?:\.(\d{1,2}))?/);
+                if (softwareVersionMatch) {
+                    const majorVersion = softwareVersionMatch[1];
+                    const patchVersion = softwareVersionMatch[2];
+
+                    if (patchVersion) {
+                        return `v1.${majorVersion}.${patchVersion}`;
+                    } else {
+                        return `v1.${majorVersion}`;
+                    }
                 }
             }
 
-            // 3. プロトコルバージョンから最新の正確なマッピング
+            // 4. protocolバージョンから正確なマッピング（フォールバック）
             if (data.protocol && data.protocol.version) {
                 const exactVersionMap = {
-                    // Minecraft 1.21.x系（最新）
-                    768: "1.21.5",
-                    767: "1.21.4",
-                    766: "1.21.3",
-                    765: "1.21.2",
-                    764: "1.21.1",
-                    763: "1.21",
+                    // Minecraft 1.21.x系
+                    770: "1.21.5", 769: "1.21.4", 768: "1.21.3", 767: "1.21.2",
+                    765: "1.21.1", 763: "1.21",
 
                     // Minecraft 1.20.x系
-                    762: "1.20.6",
-                    761: "1.20.5",
-                    760: "1.20.4",
-                    759: "1.20.3",
-                    758: "1.20.2",
-                    757: "1.20.1",
-                    756: "1.20",
+                    762: "1.20.6", 761: "1.20.5", 760: "1.20.4", 759: "1.20.3",
+                    758: "1.20.2", 757: "1.20.1", 756: "1.20",
 
                     // Minecraft 1.19.x系
-                    755: "1.19.4",
-                    754: "1.19.3",
-                    753: "1.19.2",
-                    752: "1.19.1",
-                    751: "1.19",
+                    755: "1.19.4", 754: "1.19.3", 753: "1.19.2", 752: "1.19.1", 751: "1.19",
 
                     // その他のバージョン
-                    750: "1.18.2",
-                    749: "1.18.1",
-                    748: "1.18",
-                    747: "1.17.1",
-                    746: "1.17",
-                    745: "1.16.5"
+                    750: "1.18.2", 749: "1.18.1", 748: "1.18",
+                    747: "1.17.1", 746: "1.17",
+                    745: "1.16.5", 744: "1.16.4", 743: "1.16.3", 742: "1.16.2", 741: "1.16.1", 740: "1.16",
+                    578: "1.15.2", 577: "1.15.1", 575: "1.15",
+                    498: "1.14.4", 490: "1.14.3", 485: "1.14.2", 480: "1.14.1", 477: "1.14",
+                    404: "1.13.2", 401: "1.13.1", 393: "1.13",
+                    340: "1.12.2", 338: "1.12.1", 335: "1.12",
+                    316: "1.11.2", 315: "1.11.1", 315: "1.11",
+                    210: "1.10.2", 210: "1.10.1", 210: "1.10",
+                    184: "1.9.4", 183: "1.9.3", 176: "1.9.2", 175: "1.9.1", 169: "1.9",
+                    47: "1.8.9"
                 };
 
                 const protocolVersion = data.protocol.version;
                 if (exactVersionMap[protocolVersion]) {
-                    return `${exactVersionMap[protocolVersion]} (Lobby)`;
+                    return `v${exactVersionMap[protocolVersion]}`;
                 }
             }
         }
 
-        // フォールバック: プロキシタイプを表示
-        return `${serverType} Server`;
+        // フォールバック: 不明な場合
+        return 'Unknown Version';
     }
 
     // 通常サーバーのバージョン正確抽出
     extractServerVersion(results) {
         for (const data of results) {
-            if (data.version && data.version.match(/1\.\d+(\.\d+)?/)) {
-                return data.version;
+            // protocol.nameから直接取得（最優先）
+            if (data.protocol && data.protocol.name) {
+                return `v${data.protocol.name}`;
+            }
+
+            // version文字列からの正確な抽出
+            if (data.version) {
+                const versionMatch = data.version.match(/1\.(\d{1,2})(?:\.(\d{1,2}))?/);
+                if (versionMatch) {
+                    const majorVersion = versionMatch[1];
+                    const patchVersion = versionMatch[2];
+
+                    if (patchVersion) {
+                        return `v1.${majorVersion}.${patchVersion}`;
+                    } else {
+                        return `v1.${majorVersion}`;
+                    }
+                }
             }
 
             if (data.software && data.software.version) {
-                return data.software.version;
+                const versionMatch = data.software.version.match(/1\.(\d{1,2})(?:\.(\d{1,2}))?/);
+                if (versionMatch) {
+                    const majorVersion = versionMatch[1];
+                    const patchVersion = versionMatch[2];
+
+                    if (patchVersion) {
+                        return `v1.${majorVersion}.${patchVersion}`;
+                    } else {
+                        return `v1.${majorVersion}`;
+                    }
+                }
             }
 
             if (data.protocol && data.protocol.version) {
                 const versionMap = {
-                    768: "1.21.5", 767: "1.21.4", 766: "1.21.3", 765: "1.21.2",
-                    764: "1.21.1", 763: "1.21", 762: "1.20.6", 761: "1.20.5"
+                    770: "1.21.5", 769: "1.21.4", 768: "1.21.3", 767: "1.21.2",
+                    765: "1.21.1", 763: "1.21", 762: "1.20.6", 761: "1.20.5",
+                    760: "1.20.4", 759: "1.20.3", 758: "1.20.2", 757: "1.20.1",
+                    756: "1.20", 755: "1.19.4", 754: "1.19.3", 753: "1.19.2",
+                    752: "1.19.1", 751: "1.19", 47: "1.8.9"
                 };
-                return versionMap[data.protocol.version] || `Protocol ${data.protocol.version}`;
+                return versionMap[data.protocol.version] ? `v${versionMap[data.protocol.version]}` : `Protocol ${data.protocol.version}`;
             }
         }
 
@@ -374,6 +403,52 @@ class LightServerWebsite {
         return false;
     }
 
+    // 現在の日付を年/月/日形式で取得
+    getCurrentDateString() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        return `${year}/${month}/${day}`;
+    }
+
+    // 日付をYYYY-MM-DD形式（HTML date input用）に変換
+    formatDateForInput(dateString) {
+        if (!dateString) return '';
+
+        // 年/月/日 形式を YYYY-MM-DD に変換
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+            const [year, month, day] = parts;
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+        return '';
+    }
+
+    // YYYY-MM-DD形式を年/月/日形式に変換
+    formatDateForDisplay(dateString) {
+        if (!dateString) return '';
+
+        // YYYY-MM-DD 形式を 年/月/日 に変換
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+            const [year, month, day] = parts;
+            return `${year}/${parseInt(month)}/${parseInt(day)}`;
+        }
+        return dateString;
+    }
+
+    // 年/月/日形式をDateオブジェクトに変換
+    parseJapaneseDate(dateString) {
+        if (!dateString) return null;
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+            const [year, month, day] = parts.map(Number);
+            return new Date(year, month - 1, day); // monthは0ベース
+        }
+        return null;
+    }
+
     async init() {
         this.loadLoginState();
         this.setupEventListeners();
@@ -386,7 +461,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（リアルタイム版 - 1回/秒更新）');
+        console.log('光鯖公式ホームページ初期化完了（正確なバージョン検出対応版 - 5秒間隔）');
     }
 
     // iPhone Safari対応：ボタンの強制リフレッシュ
@@ -502,23 +577,23 @@ class LightServerWebsite {
         // フォーカス最適化: アクティブ時は通常頻度、非アクティブ時は低頻度
         window.addEventListener('focus', () => {
             if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
-                console.log('ページアクティブ - リアルタイム更新再開（1回/秒）');
+                console.log('ページアクティブ - サーバー更新再開（5秒間隔）');
                 this.fetchServerStatus(); // 即座に更新
-                this.startServerStatusUpdates(); // 1000ms間隔
+                this.startServerStatusUpdates(); // 5秒間隔
             }
         });
 
         window.addEventListener('blur', () => {
             if (this.currentPage === 'server') {
-                console.log('ページ非アクティブ - 標準更新（0.5回/秒）');
-                // 非アクティブ時は2000ms間隔（0.5回/秒）に変更してリソース節約
+                console.log('ページ非アクティブ - 更新間隔延長（10秒間隔）');
+                // 非アクティブ時は10秒間隔に変更してリソース節約
                 if (this.serverUpdateInterval) {
                     clearInterval(this.serverUpdateInterval);
                     this.serverUpdateInterval = setInterval(() => {
                         if (this.data.serverConfig && this.data.serverConfig.address) {
                             this.fetchServerStatus();
                         }
-                    }, 2000); // 2000ms間隔（0.5回/秒）
+                    }, 10000); // 10秒間隔
                 }
             }
         });
@@ -716,7 +791,7 @@ class LightServerWebsite {
                         <div class="loading-spinner"></div>
                         <h3 class="server-status-title">サーバー状態を確認中...</h3>
                     </div>
-                    <p>リアルタイム更新でサーバー情報を取得しています...</p>
+                    <p>サーバー情報を取得しています...</p>
                 </div>
             `;
         } else {
@@ -794,9 +869,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="realtime-indicator">
-                                <span class="realtime-badge">リアルタイム</span>
-                            </div>
                         </div>
                         
                         <div class="server-layout-member-with-players">
@@ -831,9 +903,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="realtime-indicator">
-                                <span class="realtime-badge">リアルタイム</span>
-                            </div>
                         </div>
                         
                         <div class="server-layout-guest-with-players">
@@ -948,9 +1017,55 @@ class LightServerWebsite {
         this.updateUI();
     }
 
+    // 予定表示：現在日時に近い順＆24:00過ぎたら自動削除
     renderSchedule() {
         const container = document.getElementById('schedule-list');
         container.innerHTML = '';
+
+        const now = new Date();
+        const originalLength = this.data.schedule.length;
+
+        // 24:00（翌日の0:00）を過ぎた予定を自動削除
+        this.data.schedule = this.data.schedule.filter(item => {
+            try {
+                const itemDate = this.parseJapaneseDate(item.date);
+                if (!itemDate) return true;
+
+                // 指定日の翌日0:00を計算
+                const nextDay = new Date(itemDate);
+                nextDay.setDate(itemDate.getDate() + 1);
+                nextDay.setHours(0, 0, 0, 0);
+
+                return now < nextDay;
+            } catch (error) {
+                console.error('日付解析エラー:', error);
+                return true; // エラーの場合は削除しない
+            }
+        });
+
+        // 自動削除が発生した場合はデータを保存
+        if (this.data.schedule.length !== originalLength) {
+            console.log(`期限切れの予定 ${originalLength - this.data.schedule.length} 件を自動削除しました`);
+            this.saveData();
+        }
+
+        // 現在日時に近い順にソート
+        this.data.schedule.sort((a, b) => {
+            try {
+                const dateA = this.parseJapaneseDate(a.date);
+                const dateB = this.parseJapaneseDate(b.date);
+
+                if (!dateA || !dateB) return 0;
+
+                const diffA = Math.abs(now - dateA);
+                const diffB = Math.abs(now - dateB);
+
+                return diffA - diffB;
+            } catch (error) {
+                console.error('日付ソートエラー:', error);
+                return 0;
+            }
+        });
 
         this.data.schedule.forEach((item, index) => {
             const element = this.createContentElement(item, index, 'schedule');
@@ -960,10 +1075,12 @@ class LightServerWebsite {
         this.updateUI();
     }
 
+    // WEB表示順序変更：作成順（古い順）に表示
     renderWeb() {
         const container = document.getElementById('web-list');
         container.innerHTML = '';
 
+        // reverseを削除して作成順（古い順）に表示
         this.data.web.forEach((item, index) => {
             const element = this.createContentElement(item, index, 'web');
             container.appendChild(element);
@@ -972,9 +1089,27 @@ class LightServerWebsite {
         this.updateUI();
     }
 
+    // ロードマップ表示：日付の古い順にソート
     renderRoadmap() {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
+
+        // 日付で古い順（昇順）にソート
+        this.data.roadmap.sort((a, b) => {
+            try {
+                const dateA = this.parseJapaneseDate(a.date);
+                const dateB = this.parseJapaneseDate(b.date);
+
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+
+                return dateA - dateB; // 昇順ソート（古い順）
+            } catch (error) {
+                console.error('ロードマップ日付ソートエラー:', error);
+                return 0;
+            }
+        });
 
         this.data.roadmap.forEach((item, index) => {
             const element = this.createContentElement(item, index, 'roadmap');
@@ -982,6 +1117,16 @@ class LightServerWebsite {
         });
 
         this.updateUI();
+    }
+
+    // WEBタブ種類選択対応：アイコンマップ
+    getWebIconPath(type) {
+        const iconMap = {
+            'discord': 'discord.png',
+            'youtube': 'youtube.png',
+            'twitter': 'twitter.png'
+        };
+        return iconMap[type] || 'default.png';
     }
 
     // モーダル関連メソッド
@@ -1013,11 +1158,32 @@ class LightServerWebsite {
                     </div>
                 `;
             } else if (field.type === 'date') {
+                // HTML date input を使用（画像の形式に統一）
                 return `
                     <div class="form-group">
                         <label for="${field.id}">${field.label}</label>
-                        <input type="date" id="${field.id}" placeholder="${field.placeholder || ''}">
+                        <input type="date" id="${field.id}" placeholder="年/月/日">
                     </div>
+                `;
+            } else if (field.type === 'select') {
+                const options = field.options.map(option =>
+                    `<option value="${option}">${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+                ).join('');
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <select id="${field.id}">
+                            <option value="">選択してください</option>
+                            ${options}
+                        </select>
+                    </div>
+                    ${field.id === 'type' ? `
+                    <div class="form-group">
+                        <div id="service-icon-preview" class="service-icon-preview" style="display: none; text-align: center; margin: 10px 0;">
+                            <img id="service-icon-image" src="" alt="" style="width: 50px; height: 50px; border-radius: 8px;">
+                        </div>
+                    </div>
+                    ` : ''}
                 `;
             } else {
                 return `
@@ -1028,6 +1194,28 @@ class LightServerWebsite {
                 `;
             }
         }).join('');
+
+        // WEBページの場合、種類選択の変更イベントを追加
+        if (this.currentPage === 'web') {
+            setTimeout(() => {
+                const typeSelect = document.getElementById('type');
+                const iconPreview = document.getElementById('service-icon-preview');
+                const iconImage = document.getElementById('service-icon-image');
+
+                if (typeSelect) {
+                    typeSelect.addEventListener('change', () => {
+                        const selectedType = typeSelect.value;
+                        if (selectedType) {
+                            iconImage.src = this.getWebIconPath(selectedType);
+                            iconImage.alt = selectedType;
+                            iconPreview.style.display = 'block';
+                        } else {
+                            iconPreview.style.display = 'none';
+                        }
+                    });
+                }
+            }, 100);
+        }
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -1089,12 +1277,13 @@ class LightServerWebsite {
         return names[this.currentPage] || 'アイテム';
     }
 
+    // 日付入力統一：フォームフィールド定義を修正
     getFormFields() {
         const commonFields = {
             'news': [
                 { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ニュースのタイトル' },
-                { id: 'content', label: '内容', type: 'textarea', placeholder: 'ニュースの内容' },
-                { id: 'date', label: '日付', type: 'date' }
+                { id: 'content', label: '内容', type: 'textarea', placeholder: 'ニュースの内容' }
+                // 日付フィールドを削除
             ],
             'member': [
                 { id: 'name', label: '名前', type: 'text', placeholder: 'メンバーの名前' },
@@ -1104,23 +1293,24 @@ class LightServerWebsite {
             'schedule': [
                 { id: 'title', label: 'タイトル', type: 'text', placeholder: 'イベントのタイトル' },
                 { id: 'content', label: '詳細', type: 'textarea', placeholder: 'イベントの詳細' },
-                { id: 'date', label: '日時', type: 'text', placeholder: '2024年1月1日 20:00' }
+                { id: 'date', label: '日時', type: 'date' } // HTML date inputに統一
             ],
             'web': [
                 { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ウェブサイトの名前' },
                 { id: 'url', label: 'URL', type: 'url', placeholder: 'https://example.com' },
-                { id: 'icon', label: 'アイコン', type: 'file' }
+                { id: 'type', label: '種類', type: 'select', options: ['discord', 'youtube', 'twitter'] }
             ],
             'roadmap': [
                 { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ロードマップのタイトル' },
                 { id: 'content', label: '内容', type: 'textarea', placeholder: 'ロードマップの内容' },
-                { id: 'date', label: '予定日', type: 'text', placeholder: '2024年Q1' }
+                { id: 'date', label: '予定日', type: 'date' } // HTML date inputに統一
             ]
         };
 
         return commonFields[this.currentPage] || [];
     }
 
+    // 日付処理統一：モーダル送信処理を修正
     handleModalSubmit() {
         const fields = this.getFormFields();
         const data = {};
@@ -1135,6 +1325,28 @@ class LightServerWebsite {
                     alert(`${field.label}を選択してください`);
                     isValid = false;
                 }
+            } else if (field.type === 'select') {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+
+                // WEBページの場合、種類に基づいてアイコンを設定
+                if (this.currentPage === 'web' && field.id === 'type') {
+                    data.icon = this.getWebIconPath(value);
+                }
+            } else if (field.type === 'date') {
+                // HTML date input (YYYY-MM-DD) を 年/月/日 に変換
+                const value = document.getElementById(field.id).value;
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = this.formatDateForDisplay(value);
             } else {
                 const value = document.getElementById(field.id).value.trim();
                 if (!value) {
@@ -1146,9 +1358,20 @@ class LightServerWebsite {
             }
         });
 
+        // NEWSの場合は現在の日付を自動追加
+        if (this.currentPage === 'news') {
+            data.date = this.getCurrentDateString();
+        }
+
         if (!isValid) return;
 
-        this.data[this.currentPage].unshift(data);
+        // WEBタブは末尾に追加（作成順表示のため）
+        if (this.currentPage === 'web') {
+            this.data[this.currentPage].push(data);
+        } else {
+            this.data[this.currentPage].unshift(data);
+        }
+
         this.saveData();
         this.renderCurrentPage();
         this.hideModal();
@@ -1220,8 +1443,14 @@ class LightServerWebsite {
 
         this.data.schedule = this.data.schedule.filter(item => {
             try {
-                const eventDate = new Date(item.date);
-                return eventDate >= now;
+                const itemDate = this.parseJapaneseDate(item.date);
+                if (!itemDate) return true;
+
+                const nextDay = new Date(itemDate);
+                nextDay.setDate(itemDate.getDate() + 1);
+                nextDay.setHours(0, 0, 0, 0);
+
+                return now < nextDay;
             } catch (error) {
                 return true;
             }
@@ -1256,5 +1485,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('Light Server Website initialized successfully! (iPhone Safari対応版 - 1回/秒)');
+    console.log('Light Server Website initialized successfully! (正確なバージョン検出対応版 - 5秒間隔)');
 });
