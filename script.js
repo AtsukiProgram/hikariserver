@@ -36,6 +36,13 @@ class LightServerWebsite {
         this.updateFailureCount = 0;
         this.maxFailures = 3;
 
+        // サーバー状態表示安定化用プロパティ
+        this.lastServerStatus = null;
+        this.statusStable = false;
+        this.stableUpdateInterval = 5000; // 固定5秒間隔
+        this.retryCount = 0;
+        this.maxRetries = 2;
+
         this.init();
     }
 
@@ -63,6 +70,63 @@ class LightServerWebsite {
         }
     }
 
+    // URLルーティング機能
+    initRouter() {
+        // ページロード時のURL解析
+        this.handleRouteChange();
+
+        // ブラウザの戻る/進むボタン対応
+        window.addEventListener('popstate', () => {
+            this.handleRouteChange();
+        });
+    }
+
+    handleRouteChange() {
+        const path = window.location.pathname;
+        const pathParts = path.split('/');
+        const page = pathParts[pathParts.length - 1] || 'top';
+
+        // 有効なページかチェック
+        const validPages = ['top', 'news', 'member', 'schedule', 'web', 'roadmap', 'server'];
+        if (validPages.includes(page)) {
+            this.currentPage = page;
+            this.updateActiveNavigation();
+            this.renderCurrentPage();
+            this.updateUI();
+        }
+    }
+
+    navigateToPage(page) {
+        // URLを更新（ページリロードなし）
+        const currentPath = window.location.pathname;
+        const basePath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+        const newPath = basePath + page;
+
+        window.history.pushState({ page: page }, '', newPath);
+
+        this.currentPage = page;
+        this.updateActiveNavigation();
+        this.renderCurrentPage();
+        this.updateUI();
+
+        // サーバーページでのみサーバー状態更新開始
+        if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
+            this.startStableServerStatusUpdates();
+        } else if (page !== 'server') {
+            this.stopServerStatusUpdates();
+        }
+    }
+
+    updateActiveNavigation() {
+        // 全てのナビゲーションリンクから active クラスを削除
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+        // 現在のページに active クラスを追加
+        document.getElementById(`${this.currentPage}-page`)?.classList.add('active');
+        document.querySelector(`[data-page="${this.currentPage}"]`)?.classList.add('active');
+    }
+
     // データの読み込みと保存
     async loadData() {
         try {
@@ -78,9 +142,8 @@ class LightServerWebsite {
 
             this.renderCurrentPage();
 
-            if (this.data.serverConfig && this.data.serverConfig.address) {
-                this.fetchServerStatus();
-                this.startServerStatusUpdates();
+            if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
+                this.startStableServerStatusUpdates();
             }
         } catch (error) {
             console.error('Firebase データの読み込みに失敗:', error);
@@ -108,9 +171,8 @@ class LightServerWebsite {
         });
         this.renderCurrentPage();
 
-        if (this.data.serverConfig && this.data.serverConfig.address) {
-            this.fetchServerStatus();
-            this.startServerStatusUpdates();
+        if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
+            this.startStableServerStatusUpdates();
         }
     }
 
@@ -120,20 +182,21 @@ class LightServerWebsite {
         });
     }
 
-    // リアルタイム更新システム（API制限対応：5秒間隔）
-    startServerStatusUpdates() {
+    // 安定化されたサーバー状態更新システム
+    startStableServerStatusUpdates() {
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
         }
 
-        // 5000ms間隔で更新（API制限を考慮）
-        this.serverUpdateInterval = setInterval(() => {
-            if (this.data.serverConfig && this.data.serverConfig.address) {
-                this.fetchServerStatus();
-            }
-        }, 5000); // 5秒間隔（API制限対応）
+        // 初回は即座に実行
+        this.fetchServerStatusStable();
 
-        console.log('サーバー更新開始: 5秒間隔（API制限対応）');
+        // 固定間隔でポーリング開始
+        this.serverUpdateInterval = setInterval(() => {
+            this.fetchServerStatusStable();
+        }, this.stableUpdateInterval);
+
+        console.log(`サーバー更新開始: ${this.stableUpdateInterval / 1000}秒間隔`);
     }
 
     stopServerStatusUpdates() {
@@ -143,8 +206,8 @@ class LightServerWebsite {
         }
     }
 
-    // サーバーステータス取得（バージョン取得を廃止）
-    async fetchServerStatus() {
+    // 安定化されたサーバーステータス取得
+    async fetchServerStatusStable() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
         }
@@ -152,78 +215,134 @@ class LightServerWebsite {
         const address = this.data.serverConfig.address;
 
         try {
-            // API制限対応：1つのAPIのみ使用し、エラーハンドリング強化
-            const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
+            // 主要APIで取得（mcsrvstat.us）
+            const response = await fetch(`https://api.mcsrvstat.us/3/${encodeURIComponent(address)}`, {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                signal: AbortSignal.timeout(10000) // 10秒タイムアウト
+            });
 
-            // 429エラー（Too Many Requests）の処理
             if (response.status === 429) {
-                console.warn('API制限に達しました。60秒後に再試行します。');
-                // 60秒間リクエストを停止
-                setTimeout(() => {
-                    this.updateFailureCount = 0;
-                    console.log('API制限解除、リクエスト再開');
-                }, 60000);
+                console.warn('API制限に達しました。しばらく待機します。');
+                this.handleFetchError();
                 return;
             }
 
             if (!response.ok) {
-                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                throw new Error(`HTTP ${response.status}`);
             }
 
             const data = await response.json();
+            const normalizedStatus = this.normalizeServerStatus(data);
 
-            if (!data || data.online === undefined) {
-                throw new Error('Invalid API response');
-            }
-
-            let players = {
-                online: 0,
-                max: 0
-            };
-
-            // 人数情報の取得（プレイヤーサンプルは削除）
-            if (data.players) {
-                players.online = data.players.online || 0;
-                players.max = data.players.max || 0;
-            }
-
-            // サーバーステータス更新（バージョンはAPIから取得しない）
-            this.serverStatus = {
-                online: data.online || false,
-                players: players,
-                motd: data.motd ? (data.motd.clean || data.motd) : 'No MOTD',
-                lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
-            };
-
-            // 更新成功をカウント
-            this.updateFailureCount = 0;
-            this.lastSuccessfulUpdate = Date.now();
-
-            if (this.currentPage === 'server') {
-                this.renderServer();
+            if (normalizedStatus) {
+                this.updateServerStatusStable(normalizedStatus);
+                this.updateFailureCount = 0;
+                this.retryCount = 0;
+                this.statusStable = true;
+                this.lastSuccessfulUpdate = Date.now();
+            } else {
+                throw new Error('無効なサーバーデータ');
             }
 
         } catch (error) {
             console.error('サーバーステータスの取得に失敗:', error);
-            this.updateFailureCount++;
+            this.handleFetchError();
+        }
+    }
 
-            // 連続失敗時は前回の成功データを保持
-            if (this.updateFailureCount < this.maxFailures && this.serverStatus) {
-                console.warn(`API取得失敗 ${this.updateFailureCount}/${this.maxFailures} - 前回データを保持`);
-                return;
+    // サーバーステータスの正規化（安定版）
+    normalizeServerStatus(data) {
+        if (!data) return null;
+
+        // 基本的な検証
+        if (data.online === undefined) {
+            console.warn('サーバーデータが不完全です');
+            return null;
+        }
+
+        const normalized = {
+            online: Boolean(data.online),
+            players: {
+                online: 0,
+                max: 0
+            },
+            motd: 'No MOTD',
+            lastUpdate: new Date().toLocaleTimeString('ja-JP')
+        };
+
+        // プレイヤー情報の安全な取得
+        if (data.players && typeof data.players === 'object') {
+            normalized.players.online = Math.max(0, parseInt(data.players.online) || 0);
+            normalized.players.max = Math.max(0, parseInt(data.players.max) || 0);
+        }
+
+        // MOTD の安全な取得
+        if (data.motd) {
+            if (typeof data.motd === 'string') {
+                normalized.motd = data.motd;
+            } else if (data.motd.clean) {
+                normalized.motd = data.motd.clean;
+            } else if (data.motd.raw) {
+                normalized.motd = data.motd.raw;
             }
+        }
 
-            // 完全失敗時のフォールバック
-            this.serverStatus = {
+        return normalized;
+    }
+
+    // エラーハンドリング
+    handleFetchError() {
+        this.updateFailureCount++;
+        this.retryCount++;
+
+        if (this.retryCount <= this.maxRetries) {
+            console.log(`リトライ ${this.retryCount}/${this.maxRetries} を実行します`);
+            setTimeout(() => {
+                this.fetchServerStatusStable();
+            }, 3000); // 3秒後にリトライ
+            return;
+        }
+
+        // 連続失敗時のフォールバック
+        if (this.updateFailureCount >= this.maxFailures) {
+            console.warn('サーバー状態取得に連続失敗、オフライン状態に設定');
+            this.updateServerStatusStable({
                 online: false,
                 players: { online: 0, max: 0 },
-                motd: 'Connection failed',
-                lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
-            };
+                motd: 'サーバーに接続できません',
+                lastUpdate: new Date().toLocaleTimeString('ja-JP')
+            });
+        }
 
-            if (this.currentPage === 'server') {
-                this.renderServer();
-            }
+        this.retryCount = 0;
+        this.statusStable = false;
+    }
+
+    // サーバー状態の更新とUI反映（安定版）
+    updateServerStatusStable(status) {
+        // データの整合性チェック
+        if (!status || typeof status.online !== 'boolean') {
+            console.warn('無効なサーバー状態データを受信');
+            return;
+        }
+
+        // 前回と同じ状態の場合はスキップ（不安定な表示を防ぐ）
+        if (this.serverStatus &&
+            this.serverStatus.online === status.online &&
+            this.serverStatus.players.online === status.players.online &&
+            this.serverStatus.players.max === status.players.max) {
+            // 最終更新時刻のみ更新
+            this.serverStatus.lastUpdate = status.lastUpdate;
+            return;
+        }
+
+        this.serverStatus = status;
+
+        if (this.currentPage === 'server') {
+            this.renderServer();
         }
     }
 
@@ -291,6 +410,7 @@ class LightServerWebsite {
 
     async init() {
         this.loadLoginState();
+        this.initRouter(); // URLルーティング初期化
         this.setupEventListeners();
         await this.loadData();
         this.cleanExpiredSchedules();
@@ -301,7 +421,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（パスワード認証修正版・元の枠形状維持・手動バージョン設定対応版 - 5秒間隔）');
+        console.log('光鯖公式ホームページ初期化完了');
     }
 
     // iPhone Safari対応：ボタンの強制リフレッシュ
@@ -325,11 +445,10 @@ class LightServerWebsite {
         }
     }
 
-    // イベントリスナー設定（iPhone Safari対応強化）
+    // イベントリスナー設定（URLルーティング対応）
     setupEventListeners() {
         // ナビゲーションリンク
         document.querySelectorAll('.nav-link').forEach(link => {
-            // iPhone Safari対応：touchendとclickの両方を設定
             const handleNavClick = (e) => {
                 e.preventDefault();
                 const page = link.dataset.page;
@@ -337,7 +456,7 @@ class LightServerWebsite {
                 if (page === 'operation') {
                     this.handleOperation();
                 } else {
-                    this.showPage(page);
+                    this.navigateToPage(page); // URLルーティング使用
                 }
 
                 this.closeMobileMenu();
@@ -414,27 +533,19 @@ class LightServerWebsite {
             this.handleFileSelect(e);
         });
 
-        // フォーカス最適化: アクティブ時は通常頻度、非アクティブ時は低頻度
+        // フォーカス最適化
         window.addEventListener('focus', () => {
             if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
-                console.log('ページアクティブ - サーバー更新再開（5秒間隔）');
-                this.fetchServerStatus(); // 即座に更新
-                this.startServerStatusUpdates(); // 5秒間隔
+                console.log('ページアクティブ - サーバー更新再開');
+                this.fetchServerStatusStable(); // 即座に更新
+                this.startStableServerStatusUpdates();
             }
         });
 
         window.addEventListener('blur', () => {
+            // ページ非アクティブ時も同じ間隔を維持（安定性重視）
             if (this.currentPage === 'server') {
-                console.log('ページ非アクティブ - 更新間隔延長（10秒間隔）');
-                // 非アクティブ時は10秒間隔に変更してリソース節約
-                if (this.serverUpdateInterval) {
-                    clearInterval(this.serverUpdateInterval);
-                    this.serverUpdateInterval = setInterval(() => {
-                        if (this.data.serverConfig && this.data.serverConfig.address) {
-                            this.fetchServerStatus();
-                        }
-                    }, 10000); // 10秒間隔
-                }
+                console.log('ページ非アクティブ - 更新継続');
             }
         });
 
@@ -467,29 +578,7 @@ class LightServerWebsite {
         hamburger.classList.remove('active');
     }
 
-    showPage(page) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-
-        document.getElementById(`${page}-page`).classList.add('active');
-        document.querySelector(`[data-page="${page}"]`).classList.add('active');
-
-        this.currentPage = page;
-        this.renderCurrentPage();
-
-        // iPhone Safari対応：ページ変更時のUI更新を遅延実行
-        setTimeout(() => {
-            this.updateUI();
-            this.forceButtonRefresh();
-        }, 50);
-
-        if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
-            this.fetchServerStatus();
-            this.startServerStatusUpdates();
-        } else if (page !== 'server') {
-            this.stopServerStatusUpdates();
-        }
-    }
+    // showPage メソッドを削除し、navigateToPage を使用
 
     handleOperation() {
         if (this.userMode !== 'guest') {
@@ -577,8 +666,7 @@ class LightServerWebsite {
             btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
         });
 
-        // iPhone Safari対応：デバッグ情報
-        console.log(`UI更新: userMode=${this.userMode}, currentPage=${this.currentPage}, showPlusBtn=${showPlusBtn}, showSetBtn=${showSetBtn}`);
+        console.log(`UI更新: userMode=${this.userMode}, currentPage=${this.currentPage}`);
     }
 
     renderCurrentPage() {
@@ -604,7 +692,7 @@ class LightServerWebsite {
         }
     }
 
-    // サーバー表示（元の枠形状維持・プレイヤー情報削除・手動バージョン表示版）
+    // サーバー表示（安定版・不要な表示削除）
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -638,7 +726,7 @@ class LightServerWebsite {
             const showAddress = this.userMode !== 'guest';
 
             if (showAddress) {
-                // メンバー以上の表示（元の枠形状維持・プレイヤー情報削除）
+                // メンバー以上の表示（簡素化版）
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
@@ -670,7 +758,7 @@ class LightServerWebsite {
                     </div>
                 `;
             } else {
-                // 一般権限の表示（元の枠形状維持・プレイヤー情報削除）
+                // 一般権限の表示（簡素化版）
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
@@ -1177,8 +1265,7 @@ class LightServerWebsite {
 
         // サーバー情報更新開始
         if (this.currentPage === 'server') {
-            this.fetchServerStatus();
-            this.startServerStatusUpdates();
+            this.startStableServerStatusUpdates();
             this.renderServer();
         }
 
@@ -1264,5 +1351,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('Light Server Website initialized successfully! (パスワード認証修正版・元の枠形状維持・手動バージョン設定対応版 - 5秒間隔)');
+    console.log('光鯖公式ホームページ初期化完了（URLルーティング・表示安定化対応版）');
 });
