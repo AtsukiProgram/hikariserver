@@ -143,14 +143,13 @@ class LightServerWebsite {
         }
     }
 
-    // サーバーステータス取得（API制限対応版）
+    // サーバーステータス取得（バージョン取得を廃止）
     async fetchServerStatus() {
         if (!this.data.serverConfig || !this.data.serverConfig.address) {
             return;
         }
 
         const address = this.data.serverConfig.address;
-        const serverType = this.data.serverConfig.serverType;
 
         try {
             // API制限対応：1つのAPIのみ使用し、エラーハンドリング強化
@@ -177,36 +176,21 @@ class LightServerWebsite {
                 throw new Error('Invalid API response');
             }
 
-            let version = 'Unknown';
             let players = {
                 online: 0,
-                max: 0,
-                sample: []
+                max: 0
             };
 
-            // 人数情報の取得
+            // 人数情報の取得（プレイヤーサンプルは削除）
             if (data.players) {
                 players.online = data.players.online || 0;
                 players.max = data.players.max || 0;
-
-                // プレイヤーサンプルの取得
-                if (data.players.sample && data.players.sample.length > 0) {
-                    players.sample = data.players.sample;
-                }
             }
 
-            // バージョン情報の取得
-            if (serverType === 'BungeeCord' || serverType === 'Velocity') {
-                version = this.extractProxyLobbyVersion([data], serverType);
-            } else {
-                version = this.extractServerVersion([data]);
-            }
-
-            // サーバーステータス更新
+            // サーバーステータス更新（バージョンはAPIから取得しない）
             this.serverStatus = {
                 online: data.online || false,
                 players: players,
-                version: version,
                 motd: data.motd ? (data.motd.clean || data.motd) : 'No MOTD',
                 lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
             };
@@ -232,8 +216,7 @@ class LightServerWebsite {
             // 完全失敗時のフォールバック
             this.serverStatus = {
                 online: false,
-                players: { online: 0, max: 0, sample: [] },
-                version: 'Status unavailable',
+                players: { online: 0, max: 0 },
                 motd: 'Connection failed',
                 lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
             };
@@ -244,154 +227,11 @@ class LightServerWebsite {
         }
     }
 
-    // プロキシサーバーのロビーバージョン正確抽出（最終修正版）
-    extractProxyLobbyVersion(results, serverType) {
-        for (const data of results) {
-            // 1. protocol.name から直接取得（mcsrvstat.us APIで最も正確）
-            if (data.protocol && data.protocol.name) {
-                // protocol.nameは最も信頼性の高い情報源
-                return `v${data.protocol.name}`;
-            }
-
-            // 2. version文字列からの正確な抽出
-            if (data.version) {
-                // Minecraftバージョンの正規表現（より厳密に）
-                const minecraftVersionRegex = /(?:^|[^\d])1\.(\d{1,2})(?:\.(\d{1,2}))?(?:[^\d]|$)/;
-                const match = data.version.match(minecraftVersionRegex);
-
-                if (match) {
-                    const majorVersion = match[1];
-                    const patchVersion = match[2];
-
-                    if (patchVersion) {
-                        return `v1.${majorVersion}.${patchVersion}`;
-                    } else {
-                        return `v1.${majorVersion}`;
-                    }
-                }
-            }
-
-            // 3. software情報からバージョンを抽出
-            if (data.software) {
-                const softwareVersionMatch = data.software.match(/1\.(\d{1,2})(?:\.(\d{1,2}))?/);
-                if (softwareVersionMatch) {
-                    const majorVersion = softwareVersionMatch[1];
-                    const patchVersion = softwareVersionMatch[2];
-
-                    if (patchVersion) {
-                        return `v1.${majorVersion}.${patchVersion}`;
-                    } else {
-                        return `v1.${majorVersion}`;
-                    }
-                }
-            }
-
-            // 4. protocolバージョンから正確なマッピング（フォールバック）
-            if (data.protocol && data.protocol.version) {
-                const exactVersionMap = {
-                    // Minecraft 1.21.x系
-                    770: "1.21.5", 769: "1.21.4", 768: "1.21.3", 767: "1.21.2",
-                    765: "1.21.1", 763: "1.21",
-
-                    // Minecraft 1.20.x系
-                    762: "1.20.6", 761: "1.20.5", 760: "1.20.4", 759: "1.20.3",
-                    758: "1.20.2", 757: "1.20.1", 756: "1.20",
-
-                    // Minecraft 1.19.x系
-                    755: "1.19.4", 754: "1.19.3", 753: "1.19.2", 752: "1.19.1", 751: "1.19",
-
-                    // その他のバージョン
-                    750: "1.18.2", 749: "1.18.1", 748: "1.18",
-                    747: "1.17.1", 746: "1.17",
-                    745: "1.16.5", 744: "1.16.4", 743: "1.16.3", 742: "1.16.2", 741: "1.16.1", 740: "1.16",
-                    578: "1.15.2", 577: "1.15.1", 575: "1.15",
-                    498: "1.14.4", 490: "1.14.3", 485: "1.14.2", 480: "1.14.1", 477: "1.14",
-                    404: "1.13.2", 401: "1.13.1", 393: "1.13",
-                    340: "1.12.2", 338: "1.12.1", 335: "1.12",
-                    316: "1.11.2", 315: "1.11.1", 315: "1.11",
-                    210: "1.10.2", 210: "1.10.1", 210: "1.10",
-                    184: "1.9.4", 183: "1.9.3", 176: "1.9.2", 175: "1.9.1", 169: "1.9",
-                    47: "1.8.9"
-                };
-
-                const protocolVersion = data.protocol.version;
-                if (exactVersionMap[protocolVersion]) {
-                    return `v${exactVersionMap[protocolVersion]}`;
-                }
-            }
-        }
-
-        // フォールバック: 不明な場合
-        return 'Unknown Version';
-    }
-
-    // 通常サーバーのバージョン正確抽出
-    extractServerVersion(results) {
-        for (const data of results) {
-            // protocol.nameから直接取得（最優先）
-            if (data.protocol && data.protocol.name) {
-                return `v${data.protocol.name}`;
-            }
-
-            // version文字列からの正確な抽出
-            if (data.version) {
-                const versionMatch = data.version.match(/1\.(\d{1,2})(?:\.(\d{1,2}))?/);
-                if (versionMatch) {
-                    const majorVersion = versionMatch[1];
-                    const patchVersion = versionMatch[2];
-
-                    if (patchVersion) {
-                        return `v1.${majorVersion}.${patchVersion}`;
-                    } else {
-                        return `v1.${majorVersion}`;
-                    }
-                }
-            }
-
-            if (data.software && data.software.version) {
-                const versionMatch = data.software.version.match(/1\.(\d{1,2})(?:\.(\d{1,2}))?/);
-                if (versionMatch) {
-                    const majorVersion = versionMatch[1];
-                    const patchVersion = versionMatch[2];
-
-                    if (patchVersion) {
-                        return `v1.${majorVersion}.${patchVersion}`;
-                    } else {
-                        return `v1.${majorVersion}`;
-                    }
-                }
-            }
-
-            if (data.protocol && data.protocol.version) {
-                const versionMap = {
-                    770: "1.21.5", 769: "1.21.4", 768: "1.21.3", 767: "1.21.2",
-                    765: "1.21.1", 763: "1.21", 762: "1.20.6", 761: "1.20.5",
-                    760: "1.20.4", 759: "1.20.3", 758: "1.20.2", 757: "1.20.1",
-                    756: "1.20", 755: "1.19.4", 754: "1.19.3", 753: "1.19.2",
-                    752: "1.19.1", 751: "1.19", 47: "1.8.9"
-                };
-                return versionMap[data.protocol.version] ? `v${versionMap[data.protocol.version]}` : `Protocol ${data.protocol.version}`;
-            }
-        }
-
-        return 'Unknown';
-    }
-
-    // UUIDが無い場合の疑似UUID生成
-    generateFakeUUID(playerName) {
-        // プレイヤー名からハッシュベースの疑似UUIDを生成
-        let hash = 0;
-        for (let i = 0; i < playerName.length; i++) {
-            const char = playerName.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // 32bit整数に変換
-        }
-        const hex = Math.abs(hash).toString(16).padStart(8, '0');
-        return `${hex.substr(0,8)}-${hex.substr(8,4) || '0000'}-4${hex.substr(12,3) || '000'}-${hex.substr(15,4) || '8000'}-${'0'.repeat(12)}`;
-    }
-
-    // パスワード検証
+    // パスワード検証（修正版）
     validatePassword(input) {
+        // 入力値のトリム処理
+        input = input.trim();
+
         const memberPass = String.fromCharCode(122, 57, 120, 49, 121, 53, 104, 113);
         const adminPass = String.fromCharCode(120, 48, 104, 108, 116, 52, 105, 53);
 
@@ -461,7 +301,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（正確なバージョン検出対応版 - 5秒間隔）');
+        console.log('光鯖公式ホームページ初期化完了（パスワード認証修正版・元の枠形状維持・手動バージョン設定対応版 - 5秒間隔）');
     }
 
     // iPhone Safari対応：ボタンの強制リフレッシュ
@@ -764,7 +604,7 @@ class LightServerWebsite {
         }
     }
 
-    // プレイヤー一覧改良版 renderServer()
+    // サーバー表示（元の枠形状維持・プレイヤー情報削除・手動バージョン表示版）
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -797,73 +637,8 @@ class LightServerWebsite {
         } else {
             const showAddress = this.userMode !== 'guest';
 
-            // 改良版プレイヤー一覧HTML生成
-            let playerListHtml = '';
-            if (status.online && status.players) {
-                if (status.players.sample && status.players.sample.length > 0) {
-                    playerListHtml = `
-                        <div class="server-players-list">
-                            <h4 class="players-list-title">参加プレイヤー (${status.players.sample.length}名)</h4>
-                            <div class="players-container">
-                    `;
-
-                    status.players.sample.forEach(player => {
-                        // 複数のスキンサービスでフォールバック
-                        const skinUrl1 = `https://crafatar.com/avatars/${player.id}?size=32&overlay`;
-                        const skinUrl2 = `https://mc-heads.net/avatar/${player.id}/32`;
-                        const skinUrl3 = `https://minotar.net/helm/${player.name}/32`;
-
-                        playerListHtml += `
-                            <div class="player-item" title="プレイヤー: ${player.name}">
-                                <img src="${skinUrl1}" 
-                                     alt="${player.name}" 
-                                     class="player-skin" 
-                                     onerror="this.onerror=null; this.src='${skinUrl2}'; 
-                                              this.onerror=function(){this.src='${skinUrl3}';}">
-                                <span class="player-name">${player.name}</span>
-                                <span class="player-status">オンライン</span>
-                            </div>
-                        `;
-                    });
-
-                    playerListHtml += `
-                            </div>
-                        </div>
-                    `;
-                } else if (status.players.online > 0) {
-                    playerListHtml = `
-                        <div class="server-players-list">
-                            <h4 class="players-list-title">参加プレイヤー</h4>
-                            <div class="players-container">
-                                <div class="no-player-sample">
-                                    <div class="player-count-display">
-                                        <span class="large-player-count">${status.players.online}</span>
-                                        <span class="player-count-label">人が参加中</span>
-                                    </div>
-                                    <div class="player-sample-note">
-                                        <span>プレイヤー詳細情報を取得できませんでした</span>
-                                        <span class="sample-help">サーバー設定で enable-query=true が必要な場合があります</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    playerListHtml = `
-                        <div class="server-players-list">
-                            <h4 class="players-list-title">参加プレイヤー</h4>
-                            <div class="players-container">
-                                <div class="no-player-sample">
-                                    <span class="empty-server-message">現在、プレイヤーは参加していません</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-
             if (showAddress) {
-                // メンバー以上の表示
+                // メンバー以上の表示（元の枠形状維持・プレイヤー情報削除）
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
@@ -884,7 +659,7 @@ class LightServerWebsite {
                             
                             <div class="server-version-section">
                                 <div class="server-detail-label">バージョン</div>
-                                <div class="server-detail-value">${status.version}</div>
+                                <div class="server-detail-value">${config.version ? `v${config.version}` : '不明'}</div>
                             </div>
                             
                             <div class="server-type-section">
@@ -892,12 +667,10 @@ class LightServerWebsite {
                                 <div class="server-detail-value">${config.serverType}</div>
                             </div>
                         </div>
-                        
-                        ${playerListHtml}
                     </div>
                 `;
             } else {
-                // 一般権限の表示
+                // 一般権限の表示（元の枠形状維持・プレイヤー情報削除）
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
@@ -918,7 +691,7 @@ class LightServerWebsite {
                             
                             <div class="server-version-section">
                                 <div class="server-detail-label">バージョン</div>
-                                <div class="server-detail-value">${status.version}</div>
+                                <div class="server-detail-value">${config.version ? `v${config.version}` : '不明'}</div>
                             </div>
                             
                             <div class="server-type-section">
@@ -926,8 +699,6 @@ class LightServerWebsite {
                                 <div class="server-detail-value">${config.serverType}</div>
                             </div>
                         </div>
-                        
-                        ${playerListHtml}
                     </div>
                 `;
             }
@@ -1221,6 +992,7 @@ class LightServerWebsite {
         document.body.style.overflow = 'hidden';
     }
 
+    // サーバー設定モーダル（バージョン入力欄追加）
     showServerSettingsModal() {
         const modal = document.getElementById('modal-overlay');
         const title = document.getElementById('modal-title');
@@ -1234,6 +1006,10 @@ class LightServerWebsite {
             <div class="form-group">
                 <label for="server-address">サーバーアドレス</label>
                 <input type="text" id="server-address" value="${currentConfig.address || ''}" placeholder="example.com または 192.168.1.1:25565">
+            </div>
+            <div class="form-group">
+                <label for="server-version">バージョン</label>
+                <input type="text" id="server-version" value="${currentConfig.version || ''}" placeholder="例: 1.21.5">
             </div>
             <div class="form-group">
                 <label for="server-type">サーバー種類</label>
@@ -1377,8 +1153,10 @@ class LightServerWebsite {
         this.hideModal();
     }
 
+    // サーバー設定保存（バージョン項目追加）
     handleServerSettingsSubmit() {
         const address = document.getElementById('server-address').value.trim();
+        const version = document.getElementById('server-version').value.trim();
         const serverType = document.getElementById('server-type').value;
         const application = document.getElementById('server-application').value.trim();
 
@@ -1389,6 +1167,7 @@ class LightServerWebsite {
 
         this.data.serverConfig = {
             address: address,
+            version: version, // バージョンを保存
             serverType: serverType,
             application: application
         };
@@ -1485,5 +1264,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('Light Server Website initialized successfully! (正確なバージョン検出対応版 - 5秒間隔)');
+    console.log('Light Server Website initialized successfully! (パスワード認証修正版・元の枠形状維持・手動バージョン設定対応版 - 5秒間隔)');
 });
