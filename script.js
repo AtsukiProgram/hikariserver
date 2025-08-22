@@ -27,25 +27,27 @@ class LightServerWebsite {
             schedule: [],
             web: [],
             roadmap: [],
+            contact: [], // CONTACTデータ追加
             serverConfig: null
         };
         this.serverStatus = null;
         this.modalType = 'add';
+        this.editIndex = -1; // 編集中のアイテムインデックス
         this.serverUpdateInterval = null;
         this.lastSuccessfulUpdate = null;
         this.updateFailureCount = 0;
         this.maxFailures = 3;
 
-        // サーバー状態管理（タブ切り替え問題修正版）
+        // サーバー状態管理
         this.serverStatusHistory = [];
-        this.stableUpdateInterval = 15000; // 15秒間隔（2回目以降）
-        this.initialUpdateInterval = 500; // 初回更新は0.5秒後
+        this.stableUpdateInterval = 15000;
+        this.initialUpdateInterval = 500;
         this.consecutiveErrors = 0;
         this.maxConsecutiveErrors = 2;
         this.isApiDisabled = false;
-        this.hasEverVisitedServer = false; // サーバータブ訪問履歴（重要な追加）
-        this.isFirstLoad = true; // 初回ロード判定
-        this.isCurrentlyUpdating = false; // 現在更新中かどうか
+        this.hasEverVisitedServer = false;
+        this.isFirstLoad = true;
+        this.isCurrentlyUpdating = false;
 
         this.init();
     }
@@ -129,30 +131,25 @@ class LightServerWebsite {
         });
     }
 
-    // タブ切り替え問題修正版のサーバー状態管理システム
+    // サーバー状態管理システム
     startServerStatusUpdates() {
-        // API無効化状態の場合はスキップ
         if (this.isApiDisabled) {
             console.log('外部API取得は無効化されています');
             this.setFallbackServerStatus();
             return;
         }
 
-        // 既存の更新を停止
         this.stopServerStatusUpdates();
 
-        // 真の初回の場合のみ、更新中フラグを設定
         if (!this.hasEverVisitedServer && this.isFirstLoad) {
             this.isCurrentlyUpdating = true;
-            this.renderServer(); // 初回のみ更新中表示
+            this.renderServer();
         } else {
-            // 2回目以降は即座に前回の状態を表示
             this.setFallbackServerStatus();
         }
 
-        // 初回更新を高速実行（0.5秒後）
         setTimeout(() => {
-            this.tryFetchServerStatus(!this.hasEverVisitedServer); // 真の初回フラグを渡す
+            this.tryFetchServerStatus(!this.hasEverVisitedServer);
         }, this.initialUpdateInterval);
 
         console.log(`サーバー更新開始: 初回${this.initialUpdateInterval}ms後、以降${this.stableUpdateInterval / 1000}秒間隔`);
@@ -176,12 +173,10 @@ class LightServerWebsite {
         const address = this.data.serverConfig.address;
 
         try {
-            // 初回の場合は短いタイムアウト、通常時は長めのタイムアウト
             const timeoutDuration = isInitial ? 8000 : 12000;
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
-            // mcstatus.io API（CORS完全対応）を使用
             const response = await fetch(`https://api.mcstatus.io/v2/status/java/${encodeURIComponent(address)}`, {
                 signal: controller.signal,
                 method: 'GET',
@@ -206,7 +201,6 @@ class LightServerWebsite {
 
                 console.log('サーバー状態取得成功');
 
-                // 初回完了後、定期更新を開始
                 if (isInitial) {
                     this.serverUpdateInterval = setInterval(() => {
                         this.tryFetchServerStatus(false);
@@ -220,18 +214,15 @@ class LightServerWebsite {
             console.warn('サーバー状態取得エラー:', error.message);
             this.handleApiError(error, isInitial);
         } finally {
-            // 初回更新完了（成功・失敗に関わらず）
             this.finishUpdate();
         }
     }
 
     finishUpdate() {
-        // 初回更新完了処理
         this.isCurrentlyUpdating = false;
         this.isFirstLoad = false;
-        this.hasEverVisitedServer = true; // 重要：サーバータブ訪問履歴を記録
+        this.hasEverVisitedServer = true;
 
-        // フォールバック状態がない場合は設定
         if (!this.serverStatus) {
             this.setFallbackServerStatus();
         }
@@ -253,13 +244,11 @@ class LightServerWebsite {
             source: 'api'
         };
 
-        // プレイヤー情報の処理
         if (data.players && typeof data.players === 'object') {
             status.players.online = Math.max(0, Number(data.players.online) || 0);
             status.players.max = Math.max(0, Number(data.players.max) || 0);
         }
 
-        // MOTD の処理
         if (data.motd && data.motd.clean) {
             status.motd = String(data.motd.clean).substring(0, 100);
         } else if (data.motd && data.motd.raw) {
@@ -270,10 +259,9 @@ class LightServerWebsite {
     }
 
     setFallbackServerStatus() {
-        // 設定ベースの基本的な状態を設定（CORSエラー回避）
         if (this.data.serverConfig && this.data.serverConfig.address) {
             this.serverStatus = {
-                online: true, // 設定されている場合は基本的にオンラインとして表示
+                online: true,
                 players: {
                     online: 0,
                     max: 0
@@ -294,7 +282,6 @@ class LightServerWebsite {
             return;
         }
 
-        // 履歴に追加
         this.serverStatusHistory.unshift(newStatus);
         if (this.serverStatusHistory.length > 3) {
             this.serverStatusHistory.pop();
@@ -333,19 +320,16 @@ class LightServerWebsite {
     handleApiError(error, isInitial = false) {
         this.consecutiveErrors++;
 
-        // エラーログを最小限に抑制
         if (this.consecutiveErrors <= 1) {
             console.warn('外部API取得エラー');
         }
 
         if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-            // 外部APIを無効化し、設定ベースの表示に切り替え
             this.isApiDisabled = true;
             this.stopServerStatusUpdates();
 
             console.log('外部API取得を無効化し、設定ベースの表示に切り替えます');
 
-            // 5分後に再試行を許可
             setTimeout(() => {
                 this.isApiDisabled = false;
                 this.consecutiveErrors = 0;
@@ -353,7 +337,6 @@ class LightServerWebsite {
             }, 300000);
         }
 
-        // エラー時もフォールバック状態を設定
         this.setFallbackServerStatus();
     }
 
@@ -424,7 +407,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了');
+        console.log('光鯖公式ホームページ初期化完了（フェーズ1：編集機能・CONTACTタブ実装版）');
     }
 
     forceButtonRefresh() {
@@ -514,6 +497,10 @@ class LightServerWebsite {
         document.getElementById('modal-submit').addEventListener('click', () => {
             if (this.modalType === 'server-settings') {
                 this.handleServerSettingsSubmit();
+            } else if (this.modalType === 'edit') {
+                this.handleEditSubmit();
+            } else if (this.modalType === 'contact') {
+                this.handleContactSubmit();
             } else {
                 this.handleModalSubmit();
             }
@@ -563,7 +550,6 @@ class LightServerWebsite {
         hamburger.classList.remove('active');
     }
 
-    // タブ切り替え問題修正版の showPage メソッド
     showPage(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
@@ -580,8 +566,6 @@ class LightServerWebsite {
         }, 50);
 
         if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
-            // 重要な修正：タブ切り替え時は初期状態をリセットしない
-            // hasEverVisitedServer が false の場合のみ true の初回起動とする
             if (!this.hasEverVisitedServer) {
                 this.isFirstLoad = true;
             }
@@ -628,6 +612,7 @@ class LightServerWebsite {
         const plusBtn = document.getElementById('admin-plus-btn');
         const setBtn = document.getElementById('admin-set-btn');
         const deleteButtons = document.querySelectorAll('.delete-btn');
+        const editButtons = document.querySelectorAll('.edit-btn'); // 編集ボタン追加
 
         let showPlusBtn = false;
         let showSetBtn = false;
@@ -637,11 +622,14 @@ class LightServerWebsite {
                 if (this.currentPage === 'server') {
                     showPlusBtn = false;
                     showSetBtn = true;
+                } else if (this.currentPage === 'contact') {
+                    showPlusBtn = false;
+                    showSetBtn = false;
                 } else {
                     showPlusBtn = true;
                     showSetBtn = false;
                 }
-            } else if (this.userMode === 'member' && this.currentPage === 'member') {
+            } else if (this.userMode === 'member' && (this.currentPage === 'member' || this.currentPage === 'contact')) {
                 showPlusBtn = true;
                 showSetBtn = false;
             }
@@ -665,7 +653,13 @@ class LightServerWebsite {
             }
         }
 
+        // 削除ボタンの表示制御
         deleteButtons.forEach(btn => {
+            btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
+        });
+
+        // 編集ボタンの表示制御（NEW!）
+        editButtons.forEach(btn => {
             btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
         });
     }
@@ -687,13 +681,40 @@ class LightServerWebsite {
             case 'roadmap':
                 this.renderRoadmap();
                 break;
+            case 'contact': // CONTACTページ追加
+                this.renderContact();
+                break;
             case 'server':
                 this.renderServer();
                 break;
         }
     }
 
-    // サーバー表示（左寄せ修正・タブ切り替え問題解決版）
+    // CONTACTページのレンダリング（NEW!）
+    renderContact() {
+        const container = document.getElementById('contact-list');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (this.data.contact.length === 0) {
+            container.innerHTML = `
+                <div class="no-content">
+                    <p>お問い合わせはまだありません。</p>
+                    <p>右下の「+」ボタンからお問い合わせを送信できます。</p>
+                </div>
+            `;
+        } else {
+            this.data.contact.forEach((item, index) => {
+                const element = this.createContentElement(item, index, 'contact');
+                container.appendChild(element);
+            });
+        }
+
+        this.updateUI();
+    }
+
+    // サーバー表示
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -713,7 +734,6 @@ class LightServerWebsite {
 
         let serverContent = '';
 
-        // 真の初回更新中のみ更新中表示を出す（重要な修正箇所）
         if (!this.hasEverVisitedServer && this.isFirstLoad && this.isCurrentlyUpdating) {
             serverContent = `
                 <div class="server-status-card">
@@ -727,7 +747,6 @@ class LightServerWebsite {
                 </div>
             `;
         } else if (!status) {
-            // サーバー状態がない場合の表示
             serverContent = `
                 <div class="server-status-card">
                     <div class="server-status-header">
@@ -811,7 +830,7 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // コンテンツ要素作成
+    // コンテンツ要素作成（編集ボタン追加版）
     createContentElement(item, index, type) {
         const div = document.createElement('div');
         div.className = `${type}-item`;
@@ -823,6 +842,7 @@ class LightServerWebsite {
                     <h3>${item.name}</h3>
                     <div class="member-description">${this.parseDiscordMarkdown(item.description)}</div>
                 </div>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
                 <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
             `;
         } else if (type === 'web') {
@@ -830,10 +850,13 @@ class LightServerWebsite {
             div.innerHTML = `
                 <img src="${item.icon}" alt="${item.title}" class="web-icon">
                 <div class="web-title">${item.title}</div>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
                 <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
             `;
-            div.addEventListener('click', () => {
-                window.open(item.url, '_blank');
+            div.addEventListener('click', (e) => {
+                if (!e.target.matches('.edit-btn, .delete-btn')) {
+                    window.open(item.url, '_blank');
+                }
             });
         } else if (type === 'roadmap') {
             div.className = 'roadmap-item';
@@ -841,6 +864,16 @@ class LightServerWebsite {
                 <div class="roadmap-date">${item.date}</div>
                 <h3>${item.title}</h3>
                 <div class="roadmap-content">${this.parseDiscordMarkdown(item.content)}</div>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
+                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
+            `;
+        } else if (type === 'contact') {
+            div.className = 'content-item';
+            div.innerHTML = `
+                <h3>${item.title}</h3>
+                <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
+                <div class="content-date">${item.date}</div>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
                 <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
             `;
         } else {
@@ -849,10 +882,19 @@ class LightServerWebsite {
                 <h3>${item.title}</h3>
                 <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
                 <div class="content-date">${item.date}</div>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
                 <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
             `;
         }
 
+        // 編集ボタンイベント（NEW!）
+        const editBtn = div.querySelector('.edit-btn');
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.showEditModal(type, index);
+        });
+
+        // 削除ボタンイベント
         const deleteBtn = div.querySelector('.delete-btn');
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -864,6 +906,138 @@ class LightServerWebsite {
         });
 
         return div;
+    }
+
+    // 編集モーダル表示（NEW!）
+    showEditModal(type, index) {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+
+        this.modalType = 'edit';
+        this.editIndex = index;
+        this.editType = type;
+
+        title.textContent = `${this.getPageDisplayName()}を編集`;
+
+        const item = this.data[type][index];
+        const fields = this.getFormFields();
+
+        body.innerHTML = fields.map(field => {
+            const currentValue = item[field.id] || '';
+
+            if (field.type === 'textarea') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <textarea id="${field.id}" placeholder="${field.placeholder || ''}">${currentValue}</textarea>
+                    </div>
+                `;
+            } else if (field.type === 'file') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <div class="file-input-wrapper">
+                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
+                            <span id="file-name">現在の画像を変更しない</span>
+                        </div>
+                        <img id="image-preview" class="image-preview" src="${currentValue}" style="display: ${currentValue ? 'block' : 'none'};">
+                    </div>
+                `;
+            } else if (field.type === 'date') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <input type="date" id="${field.id}" value="${this.formatDateForInput(currentValue)}">
+                    </div>
+                `;
+            } else if (field.type === 'select') {
+                const options = field.options.map(option =>
+                    `<option value="${option}" ${option === currentValue ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+                ).join('');
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <select id="${field.id}">
+                            <option value="">選択してください</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <input type="${field.type}" id="${field.id}" value="${currentValue}" placeholder="${field.placeholder || ''}">
+                    </div>
+                `;
+            }
+        }).join('');
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    // 編集内容保存（NEW!）
+    handleEditSubmit() {
+        const fields = this.getFormFields();
+        const data = {};
+        let isValid = true;
+
+        fields.forEach(field => {
+            if (field.type === 'file') {
+                if (this.selectedImageData) {
+                    data[field.id.replace('-', '')] = this.selectedImageData;
+                } else {
+                    // 画像が選択されていない場合は元の画像を保持
+                    data[field.id.replace('-', '')] = this.data[this.editType][this.editIndex][field.id.replace('-', '')];
+                }
+            } else if (field.type === 'select') {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+
+                if (this.currentPage === 'web' && field.id === 'type') {
+                    data.icon = this.getWebIconPath(value);
+                }
+            } else if (field.type === 'date') {
+                const value = document.getElementById(field.id).value;
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = this.formatDateForDisplay(value);
+            } else {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を入力してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+            }
+        });
+
+        if (!isValid) return;
+
+        // 日付は元のまま保持（ニュース以外）
+        if (this.editType !== 'news') {
+            data.date = this.data[this.editType][this.editIndex].date;
+        }
+
+        // データを更新
+        this.data[this.editType][this.editIndex] = data;
+
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
+
+        alert('編集内容を保存しました');
     }
 
     // 各ページのレンダリングメソッド
@@ -879,7 +1053,6 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // メンバー表示（作成日古い順）
     renderMembers() {
         const container = document.getElementById('member-list');
         container.innerHTML = '';
@@ -1000,88 +1173,152 @@ class LightServerWebsite {
         const title = document.getElementById('modal-title');
         const body = document.getElementById('modal-body');
 
-        title.textContent = `${this.getPageDisplayName()}を追加`;
+        if (this.currentPage === 'contact') {
+            this.modalType = 'contact';
+            title.textContent = 'お問い合わせを送信';
 
-        const fields = this.getFormFields();
-        body.innerHTML = fields.map(field => {
-            if (field.type === 'textarea') {
-                return `
-                    <div class="form-group">
-                        <label for="${field.id}">${field.label}</label>
-                        <textarea id="${field.id}" placeholder="${field.placeholder || ''}"></textarea>
-                    </div>
-                `;
-            } else if (field.type === 'file') {
-                return `
-                    <div class="form-group">
-                        <label for="${field.id}">${field.label}</label>
-                        <div class="file-input-wrapper">
-                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
-                            <span id="file-name">ファイルが選択されていません</span>
+            body.innerHTML = `
+                <div class="form-group">
+                    <label for="contact-title">件名</label>
+                    <input type="text" id="contact-title" placeholder="お問い合わせの件名を入力してください" required>
+                </div>
+                <div class="form-group">
+                    <label for="contact-content">内容</label>
+                    <textarea id="contact-content" placeholder="お問い合わせの内容を詳しく入力してください" rows="8" required></textarea>
+                </div>
+                <div class="form-note">
+                    <p style="color: #888; font-size: 0.9em; margin-top: 10px;">
+                        ※ お問い合わせは1日1回まで送信可能です。
+                    </p>
+                </div>
+            `;
+        } else {
+            this.modalType = 'add';
+            title.textContent = `${this.getPageDisplayName()}を追加`;
+
+            const fields = this.getFormFields();
+            body.innerHTML = fields.map(field => {
+                if (field.type === 'textarea') {
+                    return `
+                        <div class="form-group">
+                            <label for="${field.id}">${field.label}</label>
+                            <textarea id="${field.id}" placeholder="${field.placeholder || ''}"></textarea>
                         </div>
-                        <img id="image-preview" class="image-preview" style="display: none;">
-                    </div>
-                `;
-            } else if (field.type === 'date') {
-                return `
-                    <div class="form-group">
-                        <label for="${field.id}">${field.label}</label>
-                        <input type="date" id="${field.id}" placeholder="年/月/日">
-                    </div>
-                `;
-            } else if (field.type === 'select') {
-                const options = field.options.map(option =>
-                    `<option value="${option}">${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
-                ).join('');
-                return `
-                    <div class="form-group">
-                        <label for="${field.id}">${field.label}</label>
-                        <select id="${field.id}">
-                            <option value="">選択してください</option>
-                            ${options}
-                        </select>
-                    </div>
-                    ${field.id === 'type' ? `
-                    <div class="form-group">
-                        <div id="service-icon-preview" class="service-icon-preview" style="display: none; text-align: center; margin: 10px 0;">
-                            <img id="service-icon-image" src="" alt="" style="width: 50px; height: 50px; border-radius: 8px;">
+                    `;
+                } else if (field.type === 'file') {
+                    return `
+                        <div class="form-group">
+                            <label for="${field.id}">${field.label}</label>
+                            <div class="file-input-wrapper">
+                                <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
+                                <span id="file-name">ファイルが選択されていません</span>
+                            </div>
+                            <img id="image-preview" class="image-preview" style="display: none;">
                         </div>
-                    </div>
-                    ` : ''}
-                `;
-            } else {
-                return `
-                    <div class="form-group">
-                        <label for="${field.id}">${field.label}</label>
-                        <input type="${field.type}" id="${field.id}" placeholder="${field.placeholder || ''}">
-                    </div>
-                `;
-            }
-        }).join('');
-
-        if (this.currentPage === 'web') {
-            setTimeout(() => {
-                const typeSelect = document.getElementById('type');
-                const iconPreview = document.getElementById('service-icon-preview');
-                const iconImage = document.getElementById('service-icon-image');
-
-                if (typeSelect) {
-                    typeSelect.addEventListener('change', () => {
-                        const selectedType = typeSelect.value;
-                        if (selectedType) {
-                            iconImage.src = this.getWebIconPath(selectedType);
-                            iconImage.alt = selectedType;
-                            iconPreview.style.display = 'block';
-                        } else {
-                            iconPreview.style.display = 'none';
-                        }
-                    });
+                    `;
+                } else if (field.type === 'date') {
+                    return `
+                        <div class="form-group">
+                            <label for="${field.id}">${field.label}</label>
+                            <input type="date" id="${field.id}" placeholder="年/月/日">
+                        </div>
+                    `;
+                } else if (field.type === 'select') {
+                    const options = field.options.map(option =>
+                        `<option value="${option}">${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+                    ).join('');
+                    return `
+                        <div class="form-group">
+                            <label for="${field.id}">${field.label}</label>
+                            <select id="${field.id}">
+                                <option value="">選択してください</option>
+                                ${options}
+                            </select>
+                        </div>
+                        ${field.id === 'type' ? `
+                        <div class="form-group">
+                            <div id="service-icon-preview" class="service-icon-preview" style="display: none; text-align: center; margin: 10px 0;">
+                                <img id="service-icon-image" src="" alt="" style="width: 50px; height: 50px; border-radius: 8px;">
+                            </div>
+                        </div>
+                        ` : ''}
+                    `;
+                } else {
+                    return `
+                        <div class="form-group">
+                            <label for="${field.id}">${field.label}</label>
+                            <input type="${field.type}" id="${field.id}" placeholder="${field.placeholder || ''}">
+                        </div>
+                    `;
                 }
-            }, 100);
+            }).join('');
+
+            if (this.currentPage === 'web') {
+                setTimeout(() => {
+                    const typeSelect = document.getElementById('type');
+                    const iconPreview = document.getElementById('service-icon-preview');
+                    const iconImage = document.getElementById('service-icon-image');
+
+                    if (typeSelect) {
+                        typeSelect.addEventListener('change', () => {
+                            const selectedType = typeSelect.value;
+                            if (selectedType) {
+                                iconImage.src = this.getWebIconPath(selectedType);
+                                iconImage.alt = selectedType;
+                                iconPreview.style.display = 'block';
+                            } else {
+                                iconPreview.style.display = 'none';
+                            }
+                        });
+                    }
+                }, 100);
+            }
         }
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+    }
+
+    // お問い合わせ送信処理（NEW!）
+    handleContactSubmit() {
+        const title = document.getElementById('contact-title').value.trim();
+        const content = document.getElementById('contact-content').value.trim();
+
+        if (!title) {
+            alert('件名を入力してください');
+            return;
+        }
+
+        if (!content) {
+            alert('内容を入力してください');
+            return;
+        }
+
+        // 簡易的な1日1回制限チェック（実際の実装では認証が必要）
+        const today = new Date().toDateString();
+        const lastContactDate = localStorage.getItem('last_contact_date');
+
+        if (lastContactDate === today && this.userMode === 'guest') {
+            alert('お問い合わせは1日1回まで送信可能です。明日もう一度お試しください。');
+            return;
+        }
+
+        const contactData = {
+            title: title,
+            content: content,
+            date: this.getCurrentDateString(),
+            status: 'open',
+            sender: this.userMode === 'guest' ? 'ゲスト' : this.userMode
+        };
+
+        this.data.contact.unshift(contactData);
+        localStorage.setItem('last_contact_date', today);
+
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
+
+        alert('お問い合わせを送信しました。返信をお待ちください。');
     }
 
     showServerSettingsModal() {
@@ -1129,8 +1366,12 @@ class LightServerWebsite {
         modal.style.display = 'none';
         document.body.style.overflow = 'auto';
 
+        // モーダル関連の変数をリセット
         document.getElementById('hidden-file-input').value = '';
         this.selectedImageData = null;
+        this.modalType = 'add';
+        this.editIndex = -1;
+        this.editType = '';
     }
 
     getPageDisplayName() {
@@ -1139,7 +1380,8 @@ class LightServerWebsite {
             'member': 'メンバー',
             'schedule': 'スケジュール',
             'web': 'ウェブサイト',
-            'roadmap': 'ロードマップ'
+            'roadmap': 'ロードマップ',
+            'contact': 'お問い合わせ'
         };
         return names[this.currentPage] || 'アイテム';
     }
@@ -1169,6 +1411,10 @@ class LightServerWebsite {
                 { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ロードマップのタイトル' },
                 { id: 'content', label: '内容', type: 'textarea', placeholder: 'ロードマップの内容' },
                 { id: 'date', label: '予定日', type: 'date' }
+            ],
+            'contact': [
+                { id: 'title', label: '件名', type: 'text', placeholder: 'お問い合わせの件名' },
+                { id: 'content', label: '内容', type: 'textarea', placeholder: 'お問い合わせの内容' }
             ]
         };
 
@@ -1260,11 +1506,10 @@ class LightServerWebsite {
         this.saveData();
         this.hideModal();
 
-        // エラーリセットと設定変更時の初回ロードリセット
         this.consecutiveErrors = 0;
         this.isApiDisabled = false;
-        this.hasEverVisitedServer = false; // サーバー設定変更時はリセット
-        this.isFirstLoad = true; // 新しい設定での初回ロードフラグ
+        this.hasEverVisitedServer = false;
+        this.isFirstLoad = true;
 
         if (this.currentPage === 'server') {
             this.startServerStatusUpdates();
@@ -1353,5 +1598,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了');
+    console.log('光鯖公式ホームページ初期化完了（フェーズ1：編集機能・CONTACTタブ実装版）');
 });

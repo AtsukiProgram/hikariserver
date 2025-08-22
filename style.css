@@ -208,6 +208,28 @@ body {
     font-size: 0.9rem;
 }
 
+/* 編集・削除ボタン（機能追加） */
+.edit-btn {
+    position: absolute;
+    top: 15px;
+    right: 50px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: none;
+    font-size: 14px;
+    align-items: center;
+    justify-content: center;
+}
+
+.edit-btn:hover {
+    background: #2980b9;
+}
+
 .delete-btn {
     position: absolute;
     top: 15px;
@@ -952,6 +974,33 @@ body {
 
 .spoiler:hover {
     color: #dcddde;
+}
+
+/* お問い合わせ専用スタイル（機能追加） */
+.no-content {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    border: 2px dashed #ddd;
+}
+
+.no-content p {
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.form-note {
+    border-top: 1px solid #e1e5e9;
+    padding-top: 15px;
+    margin-top: 20px;
+}
+
+.form-note p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
 }
 
 /* レスポンシブ（タブレット） */
