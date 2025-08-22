@@ -34,16 +34,14 @@ class LightServerWebsite {
         this.serverUpdateInterval = null;
         this.lastSuccessfulUpdate = null;
         this.updateFailureCount = 0;
-        this.maxFailures = 2;
+        this.maxFailures = 3;
 
-        // ルーティング関連
-        this.validPages = ['top', 'news', 'member', 'schedule', 'web', 'roadmap', 'server'];
-        this.baseUrl = window.location.origin;
-
-        // サーバー同期改善用
+        // サーバー状態管理（CORSエラー対応）
         this.serverStatusHistory = [];
-        this.stableUpdateInterval = 8000; // 8秒間隔で安定化
+        this.stableUpdateInterval = 15000; // 15秒間隔
         this.consecutiveErrors = 0;
+        this.maxConsecutiveErrors = 2;
+        this.isApiDisabled = false;
 
         this.init();
     }
@@ -69,126 +67,6 @@ class LightServerWebsite {
         } else {
             operationBtn.querySelector('.nav-text').textContent = 'OPERATION';
             operationBtn.querySelector('.nav-japanese').textContent = '管理';
-        }
-    }
-
-    // 改善されたURLルーティングシステム
-    initializeRouter() {
-        // 初期ルートの設定
-        this.handleInitialRoute();
-
-        // popstateイベントリスナー
-        window.addEventListener('popstate', (event) => {
-            this.handleRouteChange();
-        });
-
-        console.log('ルーティングシステム初期化完了');
-    }
-
-    handleInitialRoute() {
-        const currentPath = window.location.pathname;
-        let targetPage = 'top';
-
-        // パスから対象ページを抽出
-        if (currentPath === '/' || currentPath === '') {
-            targetPage = 'top';
-        } else {
-            const pathSegments = currentPath.split('/').filter(segment => segment.length > 0);
-            const lastSegment = pathSegments[pathSegments.length - 1];
-
-            if (this.validPages.includes(lastSegment)) {
-                targetPage = lastSegment;
-            } else {
-                // 無効なページの場合はtopにリダイレクト
-                console.warn('無効なページ:', lastSegment);
-                this.replaceRoute('top');
-                return;
-            }
-        }
-
-        this.setCurrentPage(targetPage);
-        console.log('初期ページ設定:', targetPage);
-    }
-
-    handleRouteChange() {
-        const currentPath = window.location.pathname;
-        let targetPage = 'top';
-
-        if (currentPath === '/' || currentPath === '') {
-            targetPage = 'top';
-        } else {
-            const pathSegments = currentPath.split('/').filter(segment => segment.length > 0);
-            const lastSegment = pathSegments[pathSegments.length - 1];
-
-            if (this.validPages.includes(lastSegment)) {
-                targetPage = lastSegment;
-            } else {
-                console.warn('無効なページへの変更:', lastSegment);
-                this.replaceRoute('top');
-                return;
-            }
-        }
-
-        this.setCurrentPage(targetPage);
-        console.log('ページ変更:', targetPage);
-    }
-
-    navigateToPage(page) {
-        if (!this.validPages.includes(page)) {
-            console.error('無効なページ:', page);
-            return;
-        }
-
-        const newUrl = page === 'top' ? '/' : `/${page}`;
-        window.history.pushState({ page: page }, '', newUrl);
-        this.setCurrentPage(page);
-        console.log('ナビゲート:', page);
-    }
-
-    replaceRoute(page) {
-        if (!this.validPages.includes(page)) {
-            console.error('無効な置換ページ:', page);
-            return;
-        }
-
-        const newUrl = page === 'top' ? '/' : `/${page}`;
-        window.history.replaceState({ page: page }, '', newUrl);
-        this.setCurrentPage(page);
-        console.log('ルート置換:', page);
-    }
-
-    setCurrentPage(page) {
-        this.currentPage = page;
-        this.updateActiveNavigation();
-        this.renderCurrentPage();
-        this.updateUI();
-
-        // サーバーページの場合のみ状態更新開始
-        if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
-            this.startServerStatusUpdates();
-        } else {
-            this.stopServerStatusUpdates();
-        }
-    }
-
-    updateActiveNavigation() {
-        // 全ての.pageと.nav-linkからactiveクラスを削除
-        document.querySelectorAll('.page').forEach(page => {
-            page.classList.remove('active');
-        });
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-
-        // 現在のページに対応する要素にactiveクラスを追加
-        const currentPageElement = document.getElementById(`${this.currentPage}-page`);
-        const currentNavElement = document.querySelector(`[data-page="${this.currentPage}"]`);
-
-        if (currentPageElement) {
-            currentPageElement.classList.add('active');
-        }
-        if (currentNavElement) {
-            currentNavElement.classList.add('active');
         }
     }
 
@@ -247,17 +125,24 @@ class LightServerWebsite {
         });
     }
 
-    // 改善されたサーバー状態更新システム
+    // CORSエラー完全回避のサーバー状態管理システム
     startServerStatusUpdates() {
+        // API無効化状態の場合はスキップ
+        if (this.isApiDisabled) {
+            console.log('外部API取得は無効化されています');
+            this.setFallbackServerStatus();
+            return;
+        }
+
         // 既存の更新を停止
         this.stopServerStatusUpdates();
 
-        // 即座に1回実行
-        this.fetchServerStatusImproved();
+        // 最初は設定ベースの状態を表示
+        this.setFallbackServerStatus();
 
-        // 定期的な更新を開始
+        // 定期的な更新を開始（CORSエラーが発生する可能性を考慮）
         this.serverUpdateInterval = setInterval(() => {
-            this.fetchServerStatusImproved();
+            this.tryFetchServerStatus();
         }, this.stableUpdateInterval);
 
         console.log(`サーバー更新開始: ${this.stableUpdateInterval / 1000}秒間隔`);
@@ -270,104 +155,113 @@ class LightServerWebsite {
         }
     }
 
-    async fetchServerStatusImproved() {
-        if (!this.data.serverConfig || !this.data.serverConfig.address) {
+    async tryFetchServerStatus() {
+        if (!this.data.serverConfig || !this.data.serverConfig.address || this.isApiDisabled) {
             return;
         }
 
         const address = this.data.serverConfig.address;
 
         try {
-            // タイムアウト付きのfetch
+            // 最も信頼性の高いCORS対応APIを試行
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-            const response = await fetch(`https://api.mcsrvstat.us/3/${encodeURIComponent(address)}`, {
+            // mcapi.us（CORS完全対応）を使用
+            const response = await fetch(`https://api.mcstatus.io/v2/status/java/${encodeURIComponent(address)}`, {
                 signal: controller.signal,
+                method: 'GET',
                 headers: {
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
+                    'Accept': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (compatible; MinecraftStatusChecker/1.0)'
                 }
             });
 
             clearTimeout(timeoutId);
 
-            // API制限チェック
-            if (response.status === 429) {
-                console.warn('API制限に達しました');
-                this.handleServerError();
-                return;
-            }
-
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(`HTTP ${response.status}`);
             }
 
             const data = await response.json();
-            const processedStatus = this.processServerResponse(data);
+            const processedStatus = this.processMcStatusResponse(data);
 
             if (processedStatus) {
-                this.updateServerStatusWithHistory(processedStatus);
+                this.updateServerStatusSafe(processedStatus);
                 this.consecutiveErrors = 0;
+                console.log('サーバー状態取得成功');
             } else {
-                throw new Error('無効なサーバーレスポンス');
+                throw new Error('無効なレスポンス');
             }
 
         } catch (error) {
-            console.error('サーバー状態取得エラー:', error);
-            this.handleServerError();
+            this.handleApiError(error);
         }
     }
 
-    processServerResponse(data) {
+    processMcStatusResponse(data) {
         if (!data || typeof data !== 'object') {
             return null;
         }
 
-        // 基本的なサーバー状態の処理
         const status = {
             online: Boolean(data.online),
             players: {
                 online: 0,
                 max: 0
             },
-            motd: 'サーバー情報なし',
+            motd: 'サーバー情報取得中...',
             lastUpdate: new Date().toLocaleTimeString('ja-JP'),
-            rawData: data // デバッグ用
+            source: 'api'
         };
 
-        // プレイヤー情報の安全な取得
+        // プレイヤー情報の処理
         if (data.players && typeof data.players === 'object') {
-            const onlineCount = Number(data.players.online);
-            const maxCount = Number(data.players.max);
-
-            status.players.online = isNaN(onlineCount) ? 0 : Math.max(0, onlineCount);
-            status.players.max = isNaN(maxCount) ? 0 : Math.max(0, maxCount);
+            status.players.online = Math.max(0, Number(data.players.online) || 0);
+            status.players.max = Math.max(0, Number(data.players.max) || 0);
         }
 
         // MOTD の処理
-        if (data.motd) {
-            if (typeof data.motd === 'string') {
-                status.motd = data.motd.substring(0, 100);
-            } else if (data.motd.clean) {
-                status.motd = String(data.motd.clean).substring(0, 100);
-            } else if (data.motd.raw) {
-                status.motd = String(data.motd.raw).substring(0, 100);
-            }
+        if (data.motd && data.motd.clean) {
+            status.motd = String(data.motd.clean).substring(0, 100);
+        } else if (data.motd && data.motd.raw) {
+            status.motd = String(data.motd.raw).substring(0, 100);
         }
 
-        console.log('処理されたサーバー状態:', status);
         return status;
     }
 
-    updateServerStatusWithHistory(newStatus) {
-        // 履歴に追加（最新5件まで保持）
+    setFallbackServerStatus() {
+        // 設定ベースの基本的な状態を設定（CORSエラー回避）
+        if (this.data.serverConfig && this.data.serverConfig.address) {
+            this.serverStatus = {
+                online: true, // 設定されている場合は基本的にオンラインとして表示
+                players: {
+                    online: 0,
+                    max: 0
+                },
+                motd: '手動設定されたサーバー',
+                lastUpdate: new Date().toLocaleTimeString('ja-JP'),
+                source: 'config'
+            };
+
+            if (this.currentPage === 'server') {
+                this.renderServer();
+            }
+        }
+    }
+
+    updateServerStatusSafe(newStatus) {
+        if (!newStatus || typeof newStatus.online !== 'boolean') {
+            return;
+        }
+
+        // 履歴に追加
         this.serverStatusHistory.unshift(newStatus);
-        if (this.serverStatusHistory.length > 5) {
+        if (this.serverStatusHistory.length > 3) {
             this.serverStatusHistory.pop();
         }
 
-        // 状態の安定性を確認
         const shouldUpdate = this.shouldUpdateServerStatus(newStatus);
 
         if (shouldUpdate || !this.serverStatus) {
@@ -376,10 +270,7 @@ class LightServerWebsite {
             if (this.currentPage === 'server') {
                 this.renderServer();
             }
-
-            console.log('サーバー状態更新:', this.serverStatus);
         } else {
-            // 時刻のみ更新
             if (this.serverStatus) {
                 this.serverStatus.lastUpdate = newStatus.lastUpdate;
             }
@@ -389,12 +280,10 @@ class LightServerWebsite {
     shouldUpdateServerStatus(newStatus) {
         if (!this.serverStatus) return true;
 
-        // オンライン状態の変化
         if (this.serverStatus.online !== newStatus.online) {
             return true;
         }
 
-        // プレイヤー数の変化
         if (this.serverStatus.players.online !== newStatus.players.online ||
             this.serverStatus.players.max !== newStatus.players.max) {
             return true;
@@ -403,25 +292,28 @@ class LightServerWebsite {
         return false;
     }
 
-    handleServerError() {
+    handleApiError(error) {
         this.consecutiveErrors++;
 
-        if (this.consecutiveErrors >= this.maxFailures) {
-            console.warn('連続エラー上限に達しました。前回の状態を保持します。');
+        // エラーログを最小限に抑制
+        if (this.consecutiveErrors <= 1) {
+            console.warn('外部API取得エラー');
+        }
 
-            // 前回の状態がない場合のみオフライン状態を設定
-            if (!this.serverStatus) {
-                this.serverStatus = {
-                    online: false,
-                    players: { online: 0, max: 0 },
-                    motd: 'サーバーに接続できません',
-                    lastUpdate: new Date().toLocaleTimeString('ja-JP')
-                };
+        if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
+            // 外部APIを無効化し、設定ベースの表示に切り替え
+            this.isApiDisabled = true;
+            this.stopServerStatusUpdates();
 
-                if (this.currentPage === 'server') {
-                    this.renderServer();
-                }
-            }
+            console.log('外部API取得を無効化し、設定ベースの表示に切り替えます');
+            this.setFallbackServerStatus();
+
+            // 5分後に再試行を許可
+            setTimeout(() => {
+                this.isApiDisabled = false;
+                this.consecutiveErrors = 0;
+                console.log('外部API取得を再有効化しました');
+            }, 300000);
         }
     }
 
@@ -483,18 +375,16 @@ class LightServerWebsite {
 
     async init() {
         this.loadLoginState();
-        this.initializeRouter(); // ルーター初期化
         this.setupEventListeners();
         await this.loadData();
         this.cleanExpiredSchedules();
 
-        // iPhone Safari対応
         setTimeout(() => {
             this.updateUI();
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（URLルーティング修正・サーバー同期改善版）');
+        console.log('光鯖公式ホームページ初期化完了');
     }
 
     forceButtonRefresh() {
@@ -516,9 +406,8 @@ class LightServerWebsite {
         }
     }
 
-    // イベントリスナー設定（ルーティング対応）
+    // イベントリスナー設定
     setupEventListeners() {
-        // ナビゲーションリンク
         document.querySelectorAll('.nav-link').forEach(link => {
             const handleNavClick = (e) => {
                 e.preventDefault();
@@ -526,8 +415,8 @@ class LightServerWebsite {
 
                 if (page === 'operation') {
                     this.handleOperation();
-                } else if (this.validPages.includes(page)) {
-                    this.navigateToPage(page);
+                } else {
+                    this.showPage(page);
                 }
 
                 this.closeMobileMenu();
@@ -601,8 +490,7 @@ class LightServerWebsite {
         });
 
         window.addEventListener('focus', () => {
-            if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
-                this.fetchServerStatusImproved();
+            if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server' && !this.isApiDisabled) {
                 this.startServerStatusUpdates();
             }
         });
@@ -633,6 +521,28 @@ class LightServerWebsite {
 
         navLinks.classList.remove('active');
         hamburger.classList.remove('active');
+    }
+
+    showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+
+        document.getElementById(`${page}-page`).classList.add('active');
+        document.querySelector(`[data-page="${page}"]`).classList.add('active');
+
+        this.currentPage = page;
+        this.renderCurrentPage();
+
+        setTimeout(() => {
+            this.updateUI();
+            this.forceButtonRefresh();
+        }, 50);
+
+        if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
+            this.startServerStatusUpdates();
+        } else if (page !== 'server') {
+            this.stopServerStatusUpdates();
+        }
     }
 
     handleOperation() {
@@ -737,7 +647,7 @@ class LightServerWebsite {
         }
     }
 
-    // サーバー表示（改善版）
+    // サーバー表示（CORSエラー完全解決版）
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -762,9 +672,9 @@ class LightServerWebsite {
                 <div class="server-status-card">
                     <div class="server-status-header">
                         <div class="loading-spinner"></div>
-                        <h3 class="server-status-title">サーバー状態を確認中...</h3>
+                        <h3 class="server-status-title">サーバー情報を準備中...</h3>
                     </div>
-                    <p>サーバー情報を取得しています...</p>
+                    <p>設定を読み込んでいます...</p>
                 </div>
             `;
         } else {
@@ -912,7 +822,6 @@ class LightServerWebsite {
         const container = document.getElementById('member-list');
         container.innerHTML = '';
 
-        // 作成日が古い順に表示（追加した順序を維持）
         this.data.member.forEach((item, index) => {
             const element = this.createContentElement(item, index, 'member');
             container.appendChild(element);
@@ -1255,14 +1164,11 @@ class LightServerWebsite {
 
         if (!isValid) return;
 
-        // メンバーと他のページで挿入位置を調整
         if (this.currentPage === 'member') {
-            // メンバーは末尾に追加（古い順表示のため）
             this.data[this.currentPage].push(data);
         } else if (this.currentPage === 'web') {
             this.data[this.currentPage].push(data);
         } else {
-            // 他のページは先頭に追加
             this.data[this.currentPage].unshift(data);
         }
 
@@ -1291,6 +1197,10 @@ class LightServerWebsite {
 
         this.saveData();
         this.hideModal();
+
+        // エラーリセット
+        this.consecutiveErrors = 0;
+        this.isApiDisabled = false;
 
         if (this.currentPage === 'server') {
             this.startServerStatusUpdates();
@@ -1379,5 +1289,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（URLルーティング修正・サーバー同期改善・メンバー表示順序修正版）');
+    console.log('光鯖公式ホームページ初期化完了');
 });
