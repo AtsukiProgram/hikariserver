@@ -36,12 +36,16 @@ class LightServerWebsite {
         this.updateFailureCount = 0;
         this.maxFailures = 3;
 
-        // サーバー状態管理（CORSエラー対応）
+        // サーバー状態管理（タブ切り替え問題修正版）
         this.serverStatusHistory = [];
-        this.stableUpdateInterval = 15000; // 15秒間隔
+        this.stableUpdateInterval = 15000; // 15秒間隔（2回目以降）
+        this.initialUpdateInterval = 500; // 初回更新は0.5秒後
         this.consecutiveErrors = 0;
         this.maxConsecutiveErrors = 2;
         this.isApiDisabled = false;
+        this.hasEverVisitedServer = false; // サーバータブ訪問履歴（重要な追加）
+        this.isFirstLoad = true; // 初回ロード判定
+        this.isCurrentlyUpdating = false; // 現在更新中かどうか
 
         this.init();
     }
@@ -125,7 +129,7 @@ class LightServerWebsite {
         });
     }
 
-    // CORSエラー完全回避のサーバー状態管理システム
+    // タブ切り替え問題修正版のサーバー状態管理システム
     startServerStatusUpdates() {
         // API無効化状態の場合はスキップ
         if (this.isApiDisabled) {
@@ -137,15 +141,21 @@ class LightServerWebsite {
         // 既存の更新を停止
         this.stopServerStatusUpdates();
 
-        // 最初は設定ベースの状態を表示
-        this.setFallbackServerStatus();
+        // 真の初回の場合のみ、更新中フラグを設定
+        if (!this.hasEverVisitedServer && this.isFirstLoad) {
+            this.isCurrentlyUpdating = true;
+            this.renderServer(); // 初回のみ更新中表示
+        } else {
+            // 2回目以降は即座に前回の状態を表示
+            this.setFallbackServerStatus();
+        }
 
-        // 定期的な更新を開始（CORSエラーが発生する可能性を考慮）
-        this.serverUpdateInterval = setInterval(() => {
-            this.tryFetchServerStatus();
-        }, this.stableUpdateInterval);
+        // 初回更新を高速実行（0.5秒後）
+        setTimeout(() => {
+            this.tryFetchServerStatus(!this.hasEverVisitedServer); // 真の初回フラグを渡す
+        }, this.initialUpdateInterval);
 
-        console.log(`サーバー更新開始: ${this.stableUpdateInterval / 1000}秒間隔`);
+        console.log(`サーバー更新開始: 初回${this.initialUpdateInterval}ms後、以降${this.stableUpdateInterval / 1000}秒間隔`);
     }
 
     stopServerStatusUpdates() {
@@ -153,21 +163,25 @@ class LightServerWebsite {
             clearInterval(this.serverUpdateInterval);
             this.serverUpdateInterval = null;
         }
+        this.isCurrentlyUpdating = false;
     }
 
-    async tryFetchServerStatus() {
+    async tryFetchServerStatus(isInitial = false) {
         if (!this.data.serverConfig || !this.data.serverConfig.address || this.isApiDisabled) {
+            this.finishUpdate();
+            this.setFallbackServerStatus();
             return;
         }
 
         const address = this.data.serverConfig.address;
 
         try {
-            // 最も信頼性の高いCORS対応APIを試行
+            // 初回の場合は短いタイムアウト、通常時は長めのタイムアウト
+            const timeoutDuration = isInitial ? 8000 : 12000;
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 12000);
+            const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
-            // mcapi.us（CORS完全対応）を使用
+            // mcstatus.io API（CORS完全対応）を使用
             const response = await fetch(`https://api.mcstatus.io/v2/status/java/${encodeURIComponent(address)}`, {
                 signal: controller.signal,
                 method: 'GET',
@@ -189,13 +203,37 @@ class LightServerWebsite {
             if (processedStatus) {
                 this.updateServerStatusSafe(processedStatus);
                 this.consecutiveErrors = 0;
+
                 console.log('サーバー状態取得成功');
+
+                // 初回完了後、定期更新を開始
+                if (isInitial) {
+                    this.serverUpdateInterval = setInterval(() => {
+                        this.tryFetchServerStatus(false);
+                    }, this.stableUpdateInterval);
+                }
             } else {
                 throw new Error('無効なレスポンス');
             }
 
         } catch (error) {
-            this.handleApiError(error);
+            console.warn('サーバー状態取得エラー:', error.message);
+            this.handleApiError(error, isInitial);
+        } finally {
+            // 初回更新完了（成功・失敗に関わらず）
+            this.finishUpdate();
+        }
+    }
+
+    finishUpdate() {
+        // 初回更新完了処理
+        this.isCurrentlyUpdating = false;
+        this.isFirstLoad = false;
+        this.hasEverVisitedServer = true; // 重要：サーバータブ訪問履歴を記録
+
+        // フォールバック状態がない場合は設定
+        if (!this.serverStatus) {
+            this.setFallbackServerStatus();
         }
     }
 
@@ -292,7 +330,7 @@ class LightServerWebsite {
         return false;
     }
 
-    handleApiError(error) {
+    handleApiError(error, isInitial = false) {
         this.consecutiveErrors++;
 
         // エラーログを最小限に抑制
@@ -306,7 +344,6 @@ class LightServerWebsite {
             this.stopServerStatusUpdates();
 
             console.log('外部API取得を無効化し、設定ベースの表示に切り替えます');
-            this.setFallbackServerStatus();
 
             // 5分後に再試行を許可
             setTimeout(() => {
@@ -315,6 +352,9 @@ class LightServerWebsite {
                 console.log('外部API取得を再有効化しました');
             }, 300000);
         }
+
+        // エラー時もフォールバック状態を設定
+        this.setFallbackServerStatus();
     }
 
     // パスワード検証
@@ -523,6 +563,7 @@ class LightServerWebsite {
         hamburger.classList.remove('active');
     }
 
+    // タブ切り替え問題修正版の showPage メソッド
     showPage(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
@@ -539,6 +580,11 @@ class LightServerWebsite {
         }, 50);
 
         if (page === 'server' && this.data.serverConfig && this.data.serverConfig.address) {
+            // 重要な修正：タブ切り替え時は初期状態をリセットしない
+            // hasEverVisitedServer が false の場合のみ true の初回起動とする
+            if (!this.hasEverVisitedServer) {
+                this.isFirstLoad = true;
+            }
             this.startServerStatusUpdates();
         } else if (page !== 'server') {
             this.stopServerStatusUpdates();
@@ -647,7 +693,7 @@ class LightServerWebsite {
         }
     }
 
-    // サーバー表示（CORSエラー完全解決版）
+    // サーバー表示（左寄せ修正・タブ切り替え問題解決版）
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -667,14 +713,30 @@ class LightServerWebsite {
 
         let serverContent = '';
 
-        if (!status) {
+        // 真の初回更新中のみ更新中表示を出す（重要な修正箇所）
+        if (!this.hasEverVisitedServer && this.isFirstLoad && this.isCurrentlyUpdating) {
             serverContent = `
                 <div class="server-status-card">
                     <div class="server-status-header">
                         <div class="loading-spinner"></div>
-                        <h3 class="server-status-title">サーバー情報を準備中...</h3>
+                        <h3 class="server-status-title">サーバー情報を更新中...</h3>
                     </div>
-                    <p>設定を読み込んでいます...</p>
+                    <p style="text-align: left; color: #888; margin: 20px 0 20px 20px;">
+                        最新の状態を取得しています。しばらくお待ちください...
+                    </p>
+                </div>
+            `;
+        } else if (!status) {
+            // サーバー状態がない場合の表示
+            serverContent = `
+                <div class="server-status-card">
+                    <div class="server-status-header">
+                        <div class="server-status-icon server-status-offline"></div>
+                        <h3 class="server-status-title">サーバー情報準備中</h3>
+                    </div>
+                    <p style="text-align: left; color: #888; margin: 20px 0 20px 20px;">
+                        サーバー設定を確認中です...
+                    </p>
                 </div>
             `;
         } else {
@@ -1198,9 +1260,11 @@ class LightServerWebsite {
         this.saveData();
         this.hideModal();
 
-        // エラーリセット
+        // エラーリセットと設定変更時の初回ロードリセット
         this.consecutiveErrors = 0;
         this.isApiDisabled = false;
+        this.hasEverVisitedServer = false; // サーバー設定変更時はリセット
+        this.isFirstLoad = true; // 新しい設定での初回ロードフラグ
 
         if (this.currentPage === 'server') {
             this.startServerStatusUpdates();
