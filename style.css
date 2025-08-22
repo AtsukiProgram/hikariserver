@@ -75,7 +75,12 @@ body {
     margin-top: 1px;
 }
 
-.nav-link:hover, .nav-link.active {
+.nav-link:hover {
+    background: #3498db;
+    color: white;
+}
+
+.nav-link.active {
     background: #3498db;
     color: white;
 }
@@ -315,6 +320,8 @@ body {
 
 .web-item:hover {
     transform: translateY(-5px);
+    background: #3498db;
+    color: white;
 }
 
 .web-icon {
@@ -332,6 +339,10 @@ body {
     hyphens: auto;
     line-height: 1.4;
     flex: 1;
+}
+
+.web-item:hover .web-title {
+    color: white;
 }
 
 /* ロードマップタイムライン */
@@ -908,16 +919,21 @@ body {
     border-radius: 8px;
     transition: all 0.3s ease;
     font-weight: 500;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: pointer;
 }
 
 .account-nav-item:hover {
-    background: #f8f9fa;
-    color: #2c3e50;
+    background: #3498db !important;
+    color: white !important;
 }
 
 .account-nav-item.active {
-    background: #3498db;
-    color: white;
+    background: #3498db !important;
+    color: white !important;
 }
 
 .account-actions {
@@ -973,6 +989,12 @@ body {
     justify-content: space-between;
     align-items: center;
     border-left: 4px solid #3498db;
+    transition: all 0.3s ease;
+}
+
+.user-web-item:hover {
+    background: #3498db !important;
+    color: white !important;
 }
 
 .user-web-info {
@@ -992,9 +1014,17 @@ body {
     margin-bottom: 5px;
 }
 
+.user-web-item:hover .user-web-details h4 {
+    color: white;
+}
+
 .user-web-url {
     color: #666;
     font-size: 0.9rem;
+}
+
+.user-web-item:hover .user-web-url {
+    color: white;
 }
 
 .user-web-actions {
@@ -1066,6 +1096,12 @@ body {
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.user-permission-item:hover {
+    background: #3498db !important;
+    color: white !important;
 }
 
 .user-permission-info {
@@ -1087,9 +1123,17 @@ body {
     margin-bottom: 2px;
 }
 
+.user-permission-item:hover .user-permission-name {
+    color: white;
+}
+
 .user-permission-id {
     font-size: 0.8rem;
     color: #888;
+}
+
+.user-permission-item:hover .user-permission-id {
+    color: white;
 }
 
 .role-select {
@@ -1190,8 +1234,13 @@ body {
     border-radius: 8px;
     cursor: pointer;
     font-size: 1rem;
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
     font-weight: 500;
+}
+
+.btn:hover {
+    background: #3498db !important;
+    color: white !important;
 }
 
 .btn-submit {
@@ -1200,7 +1249,7 @@ body {
 }
 
 .btn-submit:hover {
-    background: #2980b9;
+    background: #2980b9 !important;
 }
 
 .btn-cancel {
@@ -1209,7 +1258,7 @@ body {
 }
 
 .btn-cancel:hover {
-    background: #7f8c8d;
+    background: #7f8c8d !important;
 }
 
 .btn-primary {
@@ -1218,7 +1267,7 @@ body {
 }
 
 .btn-primary:hover {
-    background: #2980b9;
+    background: #2980b9 !important;
 }
 
 .image-preview {
@@ -1288,6 +1337,15 @@ body {
     margin: 0;
     font-size: 0.9rem;
     color: #666;
+}
+
+/* パスワード入力中の透過防止 */
+body.prompt-active {
+    pointer-events: none;
+}
+
+body.prompt-active .modal-overlay {
+    pointer-events: auto;
 }
 
 /* レスポンシブ（タブレット） */
