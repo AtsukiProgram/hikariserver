@@ -208,7 +208,7 @@ body {
     font-size: 0.9rem;
 }
 
-/* 編集・削除ボタン（機能追加） */
+/* 編集・削除ボタン */
 .edit-btn {
     position: absolute;
     top: 15px;
@@ -460,7 +460,7 @@ body {
     font-weight: bold;
     color: #3498db;
     font-size: 1.2rem;
-    transition: all 0.1s ease-out; /* 超高頻度更新対応の短いトランジション */
+    transition: all 0.1s ease-out;
 }
 
 .server-application {
@@ -555,7 +555,7 @@ body {
 }
 
 .server-address-full {
-    grid-column: 1 / -1; /* 全幅 */
+    grid-column: 1 / -1;
     background: #f8f9fa;
     padding: 15px;
     border-radius: 8px;
@@ -570,7 +570,7 @@ body {
 }
 
 .server-application-full {
-    grid-column: 1 / -1; /* 全幅 */
+    grid-column: 1 / -1;
     background: #f8f9fa;
     padding: 15px;
     border-radius: 8px;
@@ -583,7 +583,7 @@ body {
     margin-top: 10px;
 }
 
-/* プレイヤー一覧表示スタイル（強化版） */
+/* プレイヤー一覧表示スタイル */
 .server-players-list {
     margin-top: 20px;
     border-top: 1px solid #e0e0e0;
@@ -690,7 +690,7 @@ body {
     padding: 20px;
 }
 
-/* +ボタン（完璧な中央配置修正版） */
+/* +ボタン */
 .plus-btn {
     position: fixed;
     bottom: 30px;
@@ -704,53 +704,30 @@ body {
     box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
     transition: transform 0.3s ease;
     z-index: 998;
-
-    /* 完璧な中央配置 */
     display: flex;
     align-items: center;
     justify-content: center;
-
-    /* 全ての余白を削除 */
     padding: 0;
     margin: 0;
     border: none;
 }
 
 .plus-icon {
-    /* フォントサイズと太さ */
     font-size: 2.2rem;
     font-weight: bold;
-
-    /* 完璧な中央配置保証 */
     display: flex;
     align-items: center;
     justify-content: center;
-
-    /* サイズを親要素に合わせる */
     width: 100%;
     height: 100%;
-
-    /* 全ての余白とパディングを削除 */
     margin: 0;
     padding: 0;
-
-    /* 行の高さを1に設定して完璧な中央配置 */
     line-height: 0.8;
-
-    /* テキストの中央揃え */
     text-align: center;
-
-    /* 垂直方向の中央揃えを確実にする */
     vertical-align: middle;
-
-    /* +記号を完璧に中央に配置（修正版） */
     position: relative;
-    top: -0.05em; /* フォントの基線調整で完璧な中央に */
-
-    /* フォントファミリー指定 */
+    top: -0.05em;
     font-family: 'Segoe UI', Arial, sans-serif;
-
-    /* レタースペーシングで位置微調整 */
     letter-spacing: 0;
 }
 
@@ -758,7 +735,7 @@ body {
     transform: scale(1.1);
 }
 
-/* setボタン（絵文字版・完璧な中央配置） */
+/* setボタン */
 .set-btn {
     position: fixed;
     bottom: 30px;
@@ -772,49 +749,28 @@ body {
     box-shadow: 0 4px 15px rgba(149, 165, 166, 0.4);
     transition: transform 0.3s ease;
     z-index: 998;
-
-    /* 完璧な中央配置 */
     display: flex;
     align-items: center;
     justify-content: center;
-
-    /* 全ての余白を削除 */
     padding: 0;
     margin: 0;
     border: none;
 }
 
 .set-icon {
-    /* 絵文字のフォントサイズ */
     font-size: 1.8rem;
-
-    /* 完璧な中央配置保証 */
     display: flex;
     align-items: center;
     justify-content: center;
-
-    /* サイズを親要素に合わせる */
     width: 100%;
     height: 100%;
-
-    /* 全ての余白とパディングを削除 */
     margin: 0;
     padding: 0;
-
-    /* 行の高さを1に設定 */
     line-height: 1;
-
-    /* テキストの中央揃え */
     text-align: center;
-
-    /* 垂直方向の中央揃えを確実にする */
     vertical-align: middle;
-
-    /* 絵文字の位置を微調整 */
     position: relative;
-    top: 0px; /* 絵文字は通常調整不要 */
-
-    /* 絵文字フォント指定 */
+    top: 0px;
     font-family: 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
 }
 
@@ -823,10 +779,331 @@ body {
     background: #7f8c8d;
 }
 
-/* SERVERページでの⚙ボタン位置調整 */
 .set-btn.server-page-position {
     right: 30px !important;
     bottom: 30px !important;
+}
+
+/* ログインページ */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.login-card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+}
+
+.login-card h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+}
+
+.login-card p {
+    color: #666;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.discord-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    background: #5865f2;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.discord-login-btn:hover {
+    background: #4752c4;
+}
+
+.login-note {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.login-note p {
+    font-size: 0.9rem;
+    color: #888;
+    margin: 0;
+}
+
+/* アカウントページ */
+.account-container {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.account-sidebar {
+    min-width: 280px;
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    height: fit-content;
+}
+
+.account-user-info {
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin-bottom: 15px;
+    object-fit: cover;
+    border: 3px solid #3498db;
+}
+
+.user-username {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    font-size: 1.1rem;
+}
+
+.user-role {
+    font-size: 0.9rem;
+    color: #666;
+    background: #f8f9fa;
+    padding: 4px 12px;
+    border-radius: 15px;
+    display: inline-block;
+}
+
+.account-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 25px;
+}
+
+.account-nav-item {
+    padding: 12px 16px;
+    text-decoration: none;
+    color: #666;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.account-nav-item:hover {
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+.account-nav-item.active {
+    background: #3498db;
+    color: white;
+}
+
+.account-actions {
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.logout-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.9rem;
+}
+
+.account-content {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.account-tab {
+    display: none;
+}
+
+.account-tab.active {
+    display: block;
+}
+
+.account-tab h3 {
+    color: #2c3e50;
+    margin-bottom: 25px;
+    font-size: 1.5rem;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.account-web-actions {
+    margin-bottom: 25px;
+}
+
+.user-web-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.user-web-item {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #3498db;
+}
+
+.user-web-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-web-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+}
+
+.user-web-details h4 {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.user-web-url {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.user-web-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+
+.user-history {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.history-item {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.history-date {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.history-action {
+    color: #2c3e50;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+.permissions-content {
+    background: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+}
+
+.permission-role {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #3498db;
+    margin-bottom: 15px;
+}
+
+.permission-description {
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 25px;
+}
+
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.user-permission-item {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.user-permission-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-permission-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-permission-name {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 2px;
+}
+
+.user-permission-id {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.role-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+}
+
+.role-select:focus {
+    outline: none;
+    border-color: #3498db;
 }
 
 /* モーダル */
@@ -914,6 +1191,7 @@ body {
     cursor: pointer;
     font-size: 1rem;
     transition: background 0.3s ease;
+    font-weight: 500;
 }
 
 .btn-submit {
@@ -932,6 +1210,15 @@ body {
 
 .btn-cancel:hover {
     background: #7f8c8d;
+}
+
+.btn-primary {
+    background: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #2980b9;
 }
 
 .image-preview {
@@ -976,7 +1263,7 @@ body {
     color: #dcddde;
 }
 
-/* お問い合わせ専用スタイル（機能追加） */
+/* お問い合わせ専用スタイル */
 .no-content {
     text-align: center;
     padding: 60px 20px;
@@ -1053,6 +1340,14 @@ body {
 
     .update-source {
         font-size: 0.5rem;
+    }
+
+    .account-container {
+        flex-direction: column;
+    }
+
+    .account-sidebar {
+        min-width: auto;
     }
 }
 
@@ -1207,11 +1502,31 @@ body {
     }
 
     .realtime-indicator {
-        display: none; /* モバイルでは非表示 */
+        display: none;
     }
 
     .large-player-count {
         font-size: 1.5rem;
+    }
+
+    .account-sidebar {
+        min-width: auto;
+    }
+
+    .account-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 10px;
+    }
+
+    .account-nav-item {
+        white-space: nowrap;
+        min-width: fit-content;
+    }
+
+    .user-avatar {
+        width: 60px;
+        height: 60px;
     }
 }
 
@@ -1266,5 +1581,14 @@ body {
 
     .player-count-label {
         font-size: 0.9rem;
+    }
+
+    .login-card {
+        padding: 30px 20px;
+    }
+
+    .user-avatar {
+        width: 50px;
+        height: 50px;
     }
 }
