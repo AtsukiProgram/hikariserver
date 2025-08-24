@@ -37,7 +37,7 @@ class LightServerWebsite {
         this.accessToken = null;
         this.refreshToken = null;
         this.userWebs = [];
-        this.userHistory = [];
+        // this.userHistory = []; // 履歴機能削除
         this.adminOverride = false;
         this.isPromptActive = false; // パスワード入力中フラグ（修正版）
 
@@ -91,7 +91,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（全問題修正版）');
+        console.log('光鯖公式ホームページ初期化完了（履歴削除・モバイル修正版）');
     }
 
     getDiscordAuthURL() {
@@ -235,7 +235,7 @@ class LightServerWebsite {
 
         this.checkUserPermissions();
         this.updateLoginUI();
-        this.addToUserHistory('Discord認証でログインしました');
+        // this.addToUserHistory('Discord認証でログインしました'); // 履歴機能削除
         this.showPage('account');
 
         console.log('ログイン完了:', this.currentUser.username);
@@ -375,7 +375,7 @@ class LightServerWebsite {
 
     logout() {
         if (confirm('ログアウトしますか？')) {
-            this.addToUserHistory('ログアウトしました');
+            // this.addToUserHistory('ログアウトしました'); // 履歴機能削除
             this.clearLoginState();
             this.updateLoginUI();
             this.showPage('top');
@@ -433,7 +433,7 @@ class LightServerWebsite {
                         this.adminOverride = true;
                         localStorage.setItem('admin_override', 'true');
 
-                        this.addToUserHistory('管理者権限を取得しました');
+                        // this.addToUserHistory('管理者権限を取得しました'); // 履歴機能削除
                         this.updateLoginUI();
                         this.updateUI(); // UI更新を追加
 
@@ -667,7 +667,7 @@ class LightServerWebsite {
         `;
 
         this.setupAccountTabs();
-        this.showAccountTab('web');
+        this.showAccountTab('web'); // デフォルトでウェブタブ（履歴削除のため）
     }
 
     getUserRoleDisplay() {
@@ -682,7 +682,7 @@ class LightServerWebsite {
         }
     }
 
-    // アカウントタブ設定（複数選択完全防止版）
+    // アカウントタブ設定（履歴削除・複数選択完全防止版）
     setupAccountTabs() {
         // 既存のタブボタンを全て取得
         const tabButtons = document.querySelectorAll('.account-nav-item');
@@ -700,6 +700,12 @@ class LightServerWebsite {
                 e.preventDefault();
                 e.stopPropagation();
 
+                const tab = button.dataset.tab;
+                // 履歴タブは無視
+                if (tab === 'history') {
+                    return;
+                }
+
                 // 全てのタブのactiveクラスを強制削除
                 document.querySelectorAll('.account-nav-item').forEach(btn => {
                     btn.classList.remove('active');
@@ -708,7 +714,6 @@ class LightServerWebsite {
                 // クリックされたタブのみアクティブにする
                 button.classList.add('active');
 
-                const tab = button.dataset.tab;
                 this.showAccountTab(tab);
             });
 
@@ -730,6 +735,11 @@ class LightServerWebsite {
     }
 
     showAccountTab(tabName) {
+        // 履歴タブは無視
+        if (tabName === 'history') {
+            tabName = 'web'; // デフォルトでウェブタブに
+        }
+
         document.querySelectorAll('.account-tab').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -743,12 +753,12 @@ class LightServerWebsite {
             case 'web':
                 this.renderWebTab();
                 break;
-            case 'history':
-                this.renderHistoryTab();
-                break;
             case 'permissions':
                 this.renderPermissionsTab();
                 break;
+            // case 'history': // 履歴機能削除
+            //     this.renderHistoryTab();
+            //     break;
         }
     }
 
@@ -791,30 +801,20 @@ class LightServerWebsite {
         }
     }
 
+    // 履歴タブレンダリング（無効化）
     renderHistoryTab() {
+        // 履歴機能削除のため空関数
         const historyContainer = document.getElementById('user-history');
-        historyContainer.innerHTML = '';
-
-        if (this.userHistory.length === 0) {
+        if (historyContainer) {
             historyContainer.innerHTML = `
                 <div style="text-align: center; padding: 40px; color: #666;">
-                    <p>履歴はありません。</p>
+                    <p>履歴機能は無効化されています。</p>
                 </div>
             `;
-        } else {
-            this.userHistory.slice(0, 20).forEach(item => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <div class="history-date">${item.date}</div>
-                    <div class="history-action">${item.action}</div>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
         }
     }
 
-    // 権限タブレンダリング（秘密機能の記載削除版）
+    // 権限タブレンダリング
     renderPermissionsTab() {
         const permissionsContent = document.getElementById('permissions-content');
 
@@ -908,23 +908,15 @@ class LightServerWebsite {
         }
 
         console.log(`ユーザー ${userId} の権限を ${newRole} に変更`);
-        this.addToUserHistory(`ユーザー権限を変更: ${userId} → ${newRole}`);
+        // this.addToUserHistory(`ユーザー権限を変更: ${userId} → ${newRole}`); // 履歴機能削除
 
         alert(`ユーザーの権限を「${newRole}」に変更しました。`);
     }
 
+    // 履歴追加機能（無効化）
     addToUserHistory(action) {
-        const historyItem = {
-            date: new Date().toLocaleString('ja-JP'),
-            action: action
-        };
-        this.userHistory.unshift(historyItem);
-
-        if (this.userHistory.length > 50) {
-            this.userHistory = this.userHistory.slice(0, 50);
-        }
-
-        localStorage.setItem('user_history', JSON.stringify(this.userHistory));
+        // 履歴機能削除のため空関数
+        // console.log('History disabled:', action);
     }
 
     showAddUserWebModal() {
@@ -985,7 +977,7 @@ class LightServerWebsite {
 
         localStorage.setItem('user_webs', JSON.stringify(this.userWebs));
 
-        this.addToUserHistory(`ウェブを追加: ${title}`);
+        // this.addToUserHistory(`ウェブを追加: ${title}`); // 履歴機能削除
         this.renderWebTab();
         this.hideModal();
 
@@ -1073,7 +1065,7 @@ class LightServerWebsite {
 
         localStorage.setItem('user_webs', JSON.stringify(this.userWebs));
 
-        this.addToUserHistory(`ウェブを編集: ${title}`);
+        // this.addToUserHistory(`ウェブを編集: ${title}`); // 履歴機能削除
         this.renderWebTab();
         this.hideModal();
     }
@@ -1086,7 +1078,7 @@ class LightServerWebsite {
             this.userWebs.splice(index, 1);
             localStorage.setItem('user_webs', JSON.stringify(this.userWebs));
 
-            this.addToUserHistory(`ウェブを削除: ${web.title}`);
+            // this.addToUserHistory(`ウェブを削除: ${web.title}`); // 履歴機能削除
             this.renderWebTab();
         }
     }
@@ -1119,7 +1111,7 @@ class LightServerWebsite {
     loadUserData() {
         if (this.isLoggedIn && this.currentUser) {
             const savedWebs = localStorage.getItem('user_webs');
-            const savedHistory = localStorage.getItem('user_history');
+            // const savedHistory = localStorage.getItem('user_history'); // 履歴機能削除
 
             if (savedWebs) {
                 try {
@@ -1130,14 +1122,15 @@ class LightServerWebsite {
                 }
             }
 
-            if (savedHistory) {
-                try {
-                    this.userHistory = JSON.parse(savedHistory);
-                } catch (error) {
-                    console.error('ユーザー履歴データ読み込みエラー:', error);
-                    this.userHistory = [];
-                }
-            }
+            // 履歴読み込み削除
+            // if (savedHistory) {
+            //     try {
+            //         this.userHistory = JSON.parse(savedHistory);
+            //     } catch (error) {
+            //         console.error('ユーザー履歴データ読み込みエラー:', error);
+            //         this.userHistory = [];
+            //     }
+            // }
         }
     }
 
@@ -2306,7 +2299,7 @@ class LightServerWebsite {
                     184: '1.9.4', 183: '1.9.3', 176: '1.9.2', 175: '1.9.1', 169: '1.9',
                     47: '1.8.9'
                 };
-                
+
                 const protocolVersion = data.protocol.version;
                 if (exactVersionMap[protocolVersion]) {
                     return `v${exactVersionMap[protocolVersion]}`;
@@ -2345,5 +2338,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（全問題修正完全版）');
+    console.log('光鯖公式ホームページ初期化完了（履歴削除・モバイルバグ修正完全版）');
 });

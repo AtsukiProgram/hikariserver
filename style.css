@@ -857,7 +857,7 @@ body {
     margin: 0;
 }
 
-/* アカウントページ */
+/* アカウントページ（履歴削除対応） */
 .account-container {
     display: flex;
     gap: 30px;
@@ -905,6 +905,7 @@ body {
     display: inline-block;
 }
 
+/* アカウントナビゲーション改善（履歴削除対応） */
 .account-nav {
     display: flex;
     flex-direction: column;
@@ -934,6 +935,11 @@ body {
 .account-nav-item.active {
     background: #3498db !important;
     color: white !important;
+}
+
+/* 履歴タブを非表示 */
+.account-nav-item[data-tab="history"] {
+    display: none !important;
 }
 
 /* 複数選択防止の強化 */
@@ -967,6 +973,11 @@ body {
 
 .account-tab.active {
     display: block;
+}
+
+/* 履歴タブコンテンツも非表示 */
+#account-tab-history {
+    display: none !important;
 }
 
 .account-tab h3 {
@@ -1578,15 +1589,27 @@ body.prompt-active * {
         min-width: auto;
     }
 
+    /* モバイル時のアカウントナビゲーション調整（履歴削除対応） */
     .account-nav {
         flex-direction: row;
         overflow-x: auto;
-        gap: 10px;
+        gap: 5px;
+        padding: 0 5px;
     }
 
     .account-nav-item {
         white-space: nowrap;
         min-width: fit-content;
+        flex: 1;
+        text-align: center;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+
+    /* 2つのタブのみになったのでスペースを調整 */
+    .account-nav-item:not([data-tab="history"]) {
+        min-width: 120px;
+        max-width: 160px;
     }
 
     .user-avatar {
@@ -1595,7 +1618,7 @@ body.prompt-active * {
     }
 }
 
-/* 小さなモバイル */
+/* 小さなモバイル画面での調整 */
 @media (max-width: 480px) {
     .nav-links {
         width: 200px;
@@ -1655,5 +1678,16 @@ body.prompt-active * {
     .user-avatar {
         width: 50px;
         height: 50px;
+    }
+
+    /* 小さなモバイル時のアカウントナビ調整 */
+    .account-nav {
+        gap: 3px;
+    }
+
+    .account-nav-item {
+        padding: 8px 10px;
+        font-size: 0.85rem;
+        min-width: 100px;
     }
 }
