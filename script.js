@@ -91,7 +91,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（履歴削除・モバイル修正版）');
+        console.log('光鯖公式ホームページ初期化完了（タブ複数選択修正・管理者認証移動版）');
     }
 
     getDiscordAuthURL() {
@@ -384,74 +384,6 @@ class LightServerWebsite {
         }
     }
 
-    // 管理者パスワードトリガー設定（完全修正版）
-    setupAdminPasswordTrigger() {
-        const loginBtn = document.getElementById('loginBtn');
-
-        loginBtn.addEventListener('click', (e) => {
-            // 秘密のショートカット（Ctrl+Shift+クリック）
-            if (e.ctrlKey && e.shiftKey) {
-                // 全てのイベントを完全停止
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                // 既にプロンプト中なら無視
-                if (this.isPromptActive) {
-                    return false;
-                }
-
-                // パスワード入力中フラグON
-                this.isPromptActive = true;
-                document.body.classList.add('prompt-active');
-
-                // 全ページ遷移機能を一時無効化
-                const originalShowPage = this.showPage.bind(this);
-                const originalGetDiscordAuthURL = this.getDiscordAuthURL.bind(this);
-
-                // 一時的に全ての遷移関数を無効化
-                this.showPage = () => {
-                    console.log('Page transition blocked during admin authentication');
-                };
-                this.getDiscordAuthURL = () => {
-                    console.log('Discord auth blocked during admin authentication');
-                    return '#';
-                };
-
-                // 少し遅延させてからプロンプト表示
-                setTimeout(() => {
-                    const password = prompt('管理者パスワードを入力してください:');
-
-                    // 元の機能を復元
-                    this.showPage = originalShowPage;
-                    this.getDiscordAuthURL = originalGetDiscordAuthURL;
-                    this.isPromptActive = false;
-                    document.body.classList.remove('prompt-active');
-
-                    if (password === 'atsuki0622') {
-                        this.userMode = 'admin';
-                        this.adminOverride = true;
-                        localStorage.setItem('admin_override', 'true');
-
-                        // this.addToUserHistory('管理者権限を取得しました'); // 履歴機能削除
-                        this.updateLoginUI();
-                        this.updateUI(); // UI更新を追加
-
-                        if (this.currentPage === 'account') {
-                            this.renderAccountPage();
-                        }
-
-                        alert('管理者権限を取得しました');
-                    } else if (password) {
-                        alert('パスワードが間違っています');
-                    }
-                }, 50); // 遅延を少し長くする
-
-                return false;
-            }
-        }, true); // captureフェーズで処理
-    }
-
     setupEventListeners() {
         document.querySelectorAll('.nav-link').forEach(link => {
             const handleNavClick = (e) => {
@@ -561,8 +493,7 @@ class LightServerWebsite {
             }
         }, 1000);
 
-        // 秘密の管理者パスワードトリガーを最後に設定
-        this.setupAdminPasswordTrigger();
+        // Ctrl+Shift+Login認証機能は削除（setupAdminPasswordTrigger()呼び出しを削除）
 
         window.addEventListener('focus', () => {
             if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server' && !this.isApiDisabled) {
@@ -682,7 +613,7 @@ class LightServerWebsite {
         }
     }
 
-    // アカウントタブ設定（履歴削除・複数選択完全防止版）
+    // アカウントタブ設定（複数選択防止・メインナビと同じ仕組みに統一）
     setupAccountTabs() {
         // 既存のタブボタンを全て取得
         const tabButtons = document.querySelectorAll('.account-nav-item');
@@ -693,7 +624,7 @@ class LightServerWebsite {
             button.parentNode.replaceChild(newButton, button);
         });
 
-        // 新しいイベントリスナーを設定
+        // 新しいイベントリスナーを設定（メインナビと同じ仕組み）
         const newTabButtons = document.querySelectorAll('.account-nav-item');
         newTabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
@@ -706,30 +637,15 @@ class LightServerWebsite {
                     return;
                 }
 
-                // 全てのタブのactiveクラスを強制削除
+                // ★★★ メインナビと同じ仕組み：全てのタブを非選択に ★★★
                 document.querySelectorAll('.account-nav-item').forEach(btn => {
                     btn.classList.remove('active');
                 });
 
-                // クリックされたタブのみアクティブにする
+                // ★★★ クリックされたタブのみアクティブに ★★★
                 button.classList.add('active');
 
                 this.showAccountTab(tab);
-            });
-
-            // ホバー効果も排他制御
-            button.addEventListener('mouseenter', () => {
-                if (!button.classList.contains('active')) {
-                    button.style.backgroundColor = '#3498db';
-                    button.style.color = 'white';
-                }
-            });
-
-            button.addEventListener('mouseleave', () => {
-                if (!button.classList.contains('active')) {
-                    button.style.backgroundColor = '';
-                    button.style.color = '';
-                }
             });
         });
     }
@@ -814,7 +730,7 @@ class LightServerWebsite {
         }
     }
 
-    // 権限タブレンダリング
+    // 権限タブレンダリング（管理者認証機能付き）
     renderPermissionsTab() {
         const permissionsContent = document.getElementById('permissions-content');
 
@@ -831,10 +747,49 @@ class LightServerWebsite {
             this.renderUsersList();
         } else {
             const permissions = this.getPermissionDescription();
+            const roleDisplay = this.getUserRoleDisplay();
+
             permissionsContent.innerHTML = `
-                <div class="permission-role">あなたは${this.getUserRoleDisplay()}です。</div>
+                <div class="permission-role" id="user-role-display" style="cursor: pointer;" title="Ctrl+Shift+クリックで管理者認証">あなたは${roleDisplay}です。</div>
                 <div class="permission-description">${permissions}</div>
             `;
+
+            // ★★★ 権限表示部分にCtrl+Shift+クリック認証を追加 ★★★
+            const roleDisplayElement = document.getElementById('user-role-display');
+            if (roleDisplayElement) {
+                roleDisplayElement.addEventListener('click', (e) => {
+                    if (e.ctrlKey && e.shiftKey) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        // パスワード入力中フラグON
+                        this.isPromptActive = true;
+                        document.body.classList.add('prompt-active');
+
+                        setTimeout(() => {
+                            const password = prompt('管理者パスワードを入力してください:');
+
+                            // フラグOFF
+                            this.isPromptActive = false;
+                            document.body.classList.remove('prompt-active');
+
+                            if (password === 'atsuki0622') {
+                                this.userMode = 'admin';
+                                this.adminOverride = true;
+                                localStorage.setItem('admin_override', 'true');
+
+                                this.updateLoginUI();
+                                this.updateUI();
+                                this.renderAccountPage(); // アカウントページ全体を再描画
+
+                                alert('管理者権限を取得しました');
+                            } else if (password) {
+                                alert('パスワードが間違っています');
+                            }
+                        }, 50);
+                    }
+                });
+            }
         }
     }
 
@@ -2267,9 +2222,9 @@ class LightServerWebsite {
 
             if (data.software && data.software.version) {
                 const softwareVersion = data.software.version;
-                if (!softwareVersion.toLowerCase().includes('proxy') &&
-                    !softwareVersion.toLowerCase().includes('bungeecord') &&
-                    !softwareVersion.toLowerCase().includes('velocity') &&
+                if (!softwareVersion.toLowerCase().includes('proxy') && 
+                    !softwareVersion.toLowerCase().includes('bungeecord') && 
+                    !softwareVersion.toLowerCase().includes('velocity') && 
                     !softwareVersion.toLowerCase().includes('waterfall')) {
                     const detailedVersionMatch = softwareVersion.match(/(1\.21\.|1\.20\.|1\.19\.|1\.18\.|1\.17\.|1\.16\.|1\.15\.|1\.14\.|1\.13\.|1\.12\.|1\.11\.|1\.10\.|1\.9\.|1\.8\.)/);
                     if (detailedVersionMatch) {
@@ -2299,7 +2254,7 @@ class LightServerWebsite {
                     184: '1.9.4', 183: '1.9.3', 176: '1.9.2', 175: '1.9.1', 169: '1.9',
                     47: '1.8.9'
                 };
-
+                
                 const protocolVersion = data.protocol.version;
                 if (exactVersionMap[protocolVersion]) {
                     return `v${exactVersionMap[protocolVersion]}`;
@@ -2338,5 +2293,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（履歴削除・モバイルバグ修正完全版）');
+    console.log('光鯖公式ホームページ初期化完了（アカウントタブ複数選択修正・管理者認証移動完全版）');
 });
