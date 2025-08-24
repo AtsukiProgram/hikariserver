@@ -39,7 +39,7 @@ class LightServerWebsite {
         this.userWebs = [];
         this.userHistory = [];
         this.adminOverride = false;
-        this.isPromptActive = false; // パスワード入力中フラグ
+        this.isPromptActive = false; // パスワード入力中フラグ（修正版）
 
         this.data = {
             news: [],
@@ -60,6 +60,7 @@ class LightServerWebsite {
         this.lastSuccessfulUpdate = null;
         this.updateFailureCount = 0;
         this.maxFailures = 3;
+        this.selectedImageData = null;
 
         this.serverStatusHistory = [];
         this.stableUpdateInterval = 15000;
@@ -241,13 +242,17 @@ class LightServerWebsite {
     }
 
     showFallbackAuth() {
-        // 秘密機能の説明は削除
         alert('Discord認証に失敗しました。');
     }
 
+    // 権限チェック（強化版）
     checkUserPermissions() {
-        if (!this.currentUser) return;
+        if (!this.currentUser) {
+            this.userMode = 'guest';
+            return;
+        }
 
+        // 管理者ID判定
         const adminIds = [
             'YOUR_ADMIN_DISCORD_ID_1',
             'YOUR_ADMIN_DISCORD_ID_2'
@@ -257,14 +262,21 @@ class LightServerWebsite {
             this.userMode = 'admin';
             console.log('管理者として認証されました');
         } else {
+            // ログイン済みユーザーはmemberに設定
             this.userMode = 'member';
             console.log('メンバーとして認証されました');
         }
 
+        // 管理者オーバーライドチェック
         if (localStorage.getItem('admin_override') === 'true') {
             this.userMode = 'admin';
             this.adminOverride = true;
         }
+
+        // UI更新を呼び出し
+        setTimeout(() => {
+            this.updateUI();
+        }, 100);
     }
 
     loadLoginState() {
@@ -372,30 +384,47 @@ class LightServerWebsite {
         }
     }
 
-    // 管理者パスワードトリガー設定（秘密機能・修正版）
+    // 管理者パスワードトリガー設定（完全修正版）
     setupAdminPasswordTrigger() {
         const loginBtn = document.getElementById('loginBtn');
 
         loginBtn.addEventListener('click', (e) => {
             // 秘密のショートカット（Ctrl+Shift+クリック）
-            if (e.ctrlKey && e.shiftKey && !this.isPromptActive) {
+            if (e.ctrlKey && e.shiftKey) {
+                // 全てのイベントを完全停止
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
 
-                // パスワード入力中はページ遷移を防ぐ
+                // 既にプロンプト中なら無視
+                if (this.isPromptActive) {
+                    return false;
+                }
+
+                // パスワード入力中フラグON
                 this.isPromptActive = true;
                 document.body.classList.add('prompt-active');
 
-                // 一時的にページ遷移を無効化
+                // 全ページ遷移機能を一時無効化
                 const originalShowPage = this.showPage.bind(this);
-                this.showPage = () => {}; // 空の関数で無効化
+                const originalGetDiscordAuthURL = this.getDiscordAuthURL.bind(this);
 
+                // 一時的に全ての遷移関数を無効化
+                this.showPage = () => {
+                    console.log('Page transition blocked during admin authentication');
+                };
+                this.getDiscordAuthURL = () => {
+                    console.log('Discord auth blocked during admin authentication');
+                    return '#';
+                };
+
+                // 少し遅延させてからプロンプト表示
                 setTimeout(() => {
                     const password = prompt('管理者パスワードを入力してください:');
 
                     // 元の機能を復元
                     this.showPage = originalShowPage;
+                    this.getDiscordAuthURL = originalGetDiscordAuthURL;
                     this.isPromptActive = false;
                     document.body.classList.remove('prompt-active');
 
@@ -406,6 +435,7 @@ class LightServerWebsite {
 
                         this.addToUserHistory('管理者権限を取得しました');
                         this.updateLoginUI();
+                        this.updateUI(); // UI更新を追加
 
                         if (this.currentPage === 'account') {
                             this.renderAccountPage();
@@ -415,20 +445,21 @@ class LightServerWebsite {
                     } else if (password) {
                         alert('パスワードが間違っています');
                     }
-                }, 10);
+                }, 50); // 遅延を少し長くする
 
                 return false;
             }
-        });
+        }, true); // captureフェーズで処理
     }
 
     setupEventListeners() {
         document.querySelectorAll('.nav-link').forEach(link => {
             const handleNavClick = (e) => {
-                // パスワード入力中は無視
+                // プロンプト中は全てのナビゲーションを無視
                 if (this.isPromptActive) {
                     e.preventDefault();
                     e.stopPropagation();
+                    e.stopImmediatePropagation();
                     return false;
                 }
 
@@ -446,8 +477,8 @@ class LightServerWebsite {
                 this.closeMobileMenu();
             };
 
-            link.addEventListener('click', handleNavClick);
-            link.addEventListener('touchend', handleNavClick);
+            link.addEventListener('click', handleNavClick, true); // captureフェーズで処理
+            link.addEventListener('touchend', handleNavClick, true);
         });
 
         document.getElementById('hamburger').addEventListener('click', () => {
@@ -530,7 +561,7 @@ class LightServerWebsite {
             }
         }, 1000);
 
-        // 秘密の管理者パスワードトリガー
+        // 秘密の管理者パスワードトリガーを最後に設定
         this.setupAdminPasswordTrigger();
 
         window.addEventListener('focus', () => {
@@ -651,43 +682,48 @@ class LightServerWebsite {
         }
     }
 
-    // アカウントタブ設定（複数選択バグ修正版）
+    // アカウントタブ設定（複数選択完全防止版）
     setupAccountTabs() {
+        // 既存のタブボタンを全て取得
         const tabButtons = document.querySelectorAll('.account-nav-item');
 
+        // 全てのイベントリスナーをクリア
         tabButtons.forEach(button => {
-            // 既存のイベントリスナーを完全に削除
             const newButton = button.cloneNode(true);
             button.parentNode.replaceChild(newButton, button);
+        });
 
-            newButton.addEventListener('click', (e) => {
+        // 新しいイベントリスナーを設定
+        const newTabButtons = document.querySelectorAll('.account-nav-item');
+        newTabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // 複数選択防止：全てのタブから active クラスを削除
+                // 全てのタブのactiveクラスを強制削除
                 document.querySelectorAll('.account-nav-item').forEach(btn => {
                     btn.classList.remove('active');
                 });
 
                 // クリックされたタブのみアクティブにする
-                newButton.classList.add('active');
+                button.classList.add('active');
 
-                const tab = newButton.dataset.tab;
+                const tab = button.dataset.tab;
                 this.showAccountTab(tab);
             });
 
-            // マウスホバー効果追加（統一青色）
-            newButton.addEventListener('mouseenter', () => {
-                if (!newButton.classList.contains('active')) {
-                    newButton.style.backgroundColor = '#3498db';
-                    newButton.style.color = 'white';
+            // ホバー効果も排他制御
+            button.addEventListener('mouseenter', () => {
+                if (!button.classList.contains('active')) {
+                    button.style.backgroundColor = '#3498db';
+                    button.style.color = 'white';
                 }
             });
 
-            newButton.addEventListener('mouseleave', () => {
-                if (!newButton.classList.contains('active')) {
-                    newButton.style.backgroundColor = '';
-                    newButton.style.color = '';
+            button.addEventListener('mouseleave', () => {
+                if (!button.classList.contains('active')) {
+                    button.style.backgroundColor = '';
+                    button.style.color = '';
                 }
             });
         });
@@ -799,7 +835,6 @@ class LightServerWebsite {
                 <div class="permission-role">あなたは${this.getUserRoleDisplay()}です。</div>
                 <div class="permission-description">${permissions}</div>
             `;
-            // 秘密のCtrl+Shift機能の説明は削除
         }
     }
 
@@ -1056,7 +1091,6 @@ class LightServerWebsite {
         }
     }
 
-    // 既存の機能を維持（省略版）
     async loadData() {
         try {
             const dbRef = ref(database);
@@ -1138,6 +1172,7 @@ class LightServerWebsite {
         });
     }
 
+    // UI更新（権限判定修正版）
     updateUI() {
         const plusBtn = document.getElementById('admin-plus-btn');
         const setBtn = document.getElementById('admin-set-btn');
@@ -1147,7 +1182,8 @@ class LightServerWebsite {
         let showPlusBtn = false;
         let showSetBtn = false;
 
-        if (this.currentPage !== 'top') {
+        // 権限判定を厳密に行う
+        if (this.currentPage !== 'top' && this.currentPage !== 'login' && this.currentPage !== 'account') {
             if (this.userMode === 'admin') {
                 if (this.currentPage === 'server') {
                     showPlusBtn = false;
@@ -1155,15 +1191,20 @@ class LightServerWebsite {
                 } else if (this.currentPage === 'contact') {
                     showPlusBtn = false;
                     showSetBtn = false;
-                } else if (this.currentPage === 'account') {
-                    showPlusBtn = false;
-                    showSetBtn = false;
                 } else {
                     showPlusBtn = true;
                     showSetBtn = false;
                 }
             } else if (this.userMode === 'member' && (this.currentPage === 'member' || this.currentPage === 'contact')) {
-                showPlusBtn = true;
+                // メンバー権限の確認を厳密に
+                if (this.isLoggedIn && this.currentUser) {
+                    showPlusBtn = true;
+                    showSetBtn = false;
+                }
+            }
+            // guestユーザーには何も表示しない
+            else if (this.userMode === 'guest') {
+                showPlusBtn = false;
                 showSetBtn = false;
             }
         }
@@ -1221,7 +1262,6 @@ class LightServerWebsite {
         }
     }
 
-    // 既存のレンダリングメソッド（省略）
     renderNews() {
         const container = document.getElementById('news-list');
         container.innerHTML = '';
@@ -1341,7 +1381,164 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // その他必要なメソッドも維持
+    renderServer() {
+        const container = document.getElementById('server-info');
+
+        if (!this.data.serverConfig) {
+            container.innerHTML = `
+                <div class="server-status-card">
+                    <h3 style="text-align: center; color: #666; margin-bottom: 20px;">サーバー設定がありません</h3>
+                    <p style="text-align: center; color: #888;">管理者がサーバー設定を行ってください。</p>
+                </div>
+            `;
+            this.updateUI();
+            return;
+        }
+
+        const config = this.data.serverConfig;
+        const status = this.serverStatus;
+
+        let serverContent = '';
+
+        if (!status) {
+            serverContent = `
+                <div class="server-status-card">
+                    <div class="server-status-header">
+                        <div class="loading-spinner"></div>
+                        <h3 class="server-status-title">サーバー情報を取得中...</h3>
+                    </div>
+                    <p style="text-align: center; color: #888;">サーバーに接続しています。しばらくお待ちください。</p>
+                </div>
+            `;
+        } else {
+            const showAddress = this.userMode !== 'guest';
+
+            let playerListHtml = '';
+            if (status.online && status.players) {
+                if (status.players.sample && status.players.sample.length > 0) {
+                    playerListHtml = `
+                        <div class="server-players-list">
+                            <h4 class="players-list-title">オンラインプレイヤー (${status.players.sample.length})</h4>
+                            <div class="players-container">
+                    `;
+
+                    status.players.sample.forEach(player => {
+                        const skinUrl1 = `https://crafatar.com/avatars/${player.id}?size=32&overlay`;
+                        const skinUrl2 = `https://mc-heads.net/avatar/${player.id}/32`;
+                        const skinUrl3 = `https://minotar.net/helm/${player.name}/32`;
+
+                        playerListHtml += `
+                            <div class="player-item" title="${player.name}">
+                                <img src="${skinUrl1}" alt="${player.name}" class="player-skin" 
+                                     onerror="this.onerror=null; this.src='${skinUrl2}'; this.onerror=function(){this.src='${skinUrl3}';}">
+                                <span class="player-name">${player.name}</span>
+                                <span class="player-status">オンライン</span>
+                            </div>
+                        `;
+                    });
+
+                    playerListHtml += '</div></div>';
+                } else if (status.players.online > 0) {
+                    playerListHtml = `
+                        <div class="server-players-list">
+                            <h4 class="players-list-title">プレイヤー情報</h4>
+                            <div class="players-container">
+                                <div class="no-player-sample">
+                                    <div class="player-count-display">
+                                        <span class="large-player-count">${status.players.online}</span>
+                                        <span class="player-count-label">人がオンライン</span>
+                                    </div>
+                                    <div class="player-sample-note">
+                                        <span>プレイヤーリストの詳細は表示できません</span>
+                                        <span class="sample-help">（サーバー設定でenable-query=trueにすると表示されます）</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    playerListHtml = `
+                        <div class="server-players-list">
+                            <h4 class="players-list-title">プレイヤー情報</h4>
+                            <div class="players-container">
+                                <div class="no-player-sample">
+                                    <span class="empty-server-message">現在、誰もオンラインではありません</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (showAddress) {
+                serverContent = `
+                    <div class="server-status-card">
+                        <div class="server-status-header">
+                            <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
+                            <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
+                            <div class="realtime-indicator">
+                                <span class="realtime-badge">リアルタイム</span>
+                            </div>
+                        </div>
+                        <div class="server-layout-member-with-players">
+                            <div class="server-address-full">
+                                <div class="server-detail-label">サーバーアドレス</div>
+                                <div class="server-detail-value">${config.address}</div>
+                            </div>
+                            <div class="server-players-section">
+                                <div class="server-detail-label">プレイヤー</div>
+                                <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                            </div>
+                            <div class="server-version-section">
+                                <div class="server-detail-label">バージョン</div>
+                                <div class="server-detail-value">${status.version}</div>
+                            </div>
+                            <div class="server-type-section">
+                                <div class="server-detail-label">サーバータイプ</div>
+                                <div class="server-detail-value">${config.serverType}</div>
+                            </div>
+                        </div>
+                        ${playerListHtml}
+                    </div>
+                `;
+            } else {
+                serverContent = `
+                    <div class="server-status-card">
+                        <div class="server-status-header">
+                            <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
+                            <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
+                            <div class="realtime-indicator">
+                                <span class="realtime-badge">リアルタイム</span>
+                            </div>
+                        </div>
+                        <div class="server-layout-guest-with-players">
+                            <div class="server-application-full">
+                                <div class="server-detail-label">参加方法</div>
+                                <div class="server-application-content">${this.parseDiscordMarkdown(config.application)}</div>
+                            </div>
+                            <div class="server-players-section">
+                                <div class="server-detail-label">プレイヤー</div>
+                                <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                            </div>
+                            <div class="server-version-section">
+                                <div class="server-detail-label">バージョン</div>
+                                <div class="server-detail-value">${status.version}</div>
+                            </div>
+                            <div class="server-type-section">
+                                <div class="server-detail-label">サーバータイプ</div>
+                                <div class="server-detail-value">${config.serverType}</div>
+                            </div>
+                        </div>
+                        ${playerListHtml}
+                    </div>
+                `;
+            }
+        }
+
+        container.innerHTML = serverContent;
+        this.updateUI();
+    }
+
     forceButtonRefresh() {
         const plusBtn = document.getElementById('admin-plus-btn');
         const setBtn = document.getElementById('admin-set-btn');
@@ -1501,6 +1698,75 @@ class LightServerWebsite {
         return div;
     }
 
+    showEditModal(type, index) {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+
+        this.modalType = 'edit';
+        this.editIndex = index;
+        this.editType = type;
+
+        title.textContent = `${this.getPageDisplayName()}を編集`;
+
+        const item = this.data[type][index];
+        const fields = this.getFormFields();
+
+        body.innerHTML = fields.map(field => {
+            const currentValue = item[field.id] || '';
+
+            if (field.type === 'textarea') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <textarea id="${field.id}" placeholder="${field.placeholder || ''}">${currentValue}</textarea>
+                    </div>
+                `;
+            } else if (field.type === 'file') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <div class="file-input-wrapper">
+                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
+                            <span id="file-name">現在の画像を変更しない</span>
+                        </div>
+                        <img id="image-preview" class="image-preview" src="${currentValue}" style="display: ${currentValue ? 'block' : 'none'};">
+                    </div>
+                `;
+            } else if (field.type === 'date') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <input type="date" id="${field.id}" value="${this.formatDateForInput(currentValue)}">
+                    </div>
+                `;
+            } else if (field.type === 'select') {
+                const options = field.options.map(option =>
+                    `<option value="${option}" ${option === currentValue ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+                ).join('');
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <select id="${field.id}">
+                            <option value="">選択してください</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <input type="${field.type}" id="${field.id}" value="${currentValue}" placeholder="${field.placeholder || ''}">
+                    </div>
+                `;
+            }
+        }).join('');
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
     parseDiscordMarkdown(text) {
         if (!text) return '';
         text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1515,7 +1781,562 @@ class LightServerWebsite {
         return text;
     }
 
-    // その他のメソッドも必要に応じて追加
+    getPageDisplayName() {
+        const names = {
+            'news': 'ニュース',
+            'member': 'メンバー',
+            'schedule': 'スケジュール',
+            'web': 'ウェブサイト',
+            'roadmap': 'ロードマップ',
+            'contact': 'お問い合わせ'
+        };
+        return names[this.currentPage] || 'アイテム';
+    }
+
+    getFormFields() {
+        const commonFields = {
+            'news': [
+                { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ニュースのタイトル' },
+                { id: 'content', label: '内容', type: 'textarea', placeholder: 'ニュースの内容' }
+            ],
+            'member': [
+                { id: 'name', label: '名前', type: 'text', placeholder: 'メンバーの名前' },
+                { id: 'description', label: '説明', type: 'textarea', placeholder: 'メンバーの説明' },
+                { id: 'image', label: '画像', type: 'file' }
+            ],
+            'schedule': [
+                { id: 'title', label: 'タイトル', type: 'text', placeholder: 'イベントのタイトル' },
+                { id: 'content', label: '詳細', type: 'textarea', placeholder: 'イベントの詳細' },
+                { id: 'date', label: '日時', type: 'date' }
+            ],
+            'web': [
+                { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ウェブサイトの名前' },
+                { id: 'url', label: 'URL', type: 'url', placeholder: 'https://example.com' },
+                { id: 'type', label: '種類', type: 'select', options: ['discord', 'youtube', 'twitter'] }
+            ],
+            'roadmap': [
+                { id: 'title', label: 'タイトル', type: 'text', placeholder: 'ロードマップのタイトル' },
+                { id: 'content', label: '内容', type: 'textarea', placeholder: 'ロードマップの内容' },
+                { id: 'date', label: '予定日', type: 'date' }
+            ],
+            'contact': [
+                { id: 'title', label: '件名', type: 'text', placeholder: 'お問い合わせの件名' },
+                { id: 'content', label: '内容', type: 'textarea', placeholder: 'お問い合わせの内容' }
+            ]
+        };
+
+        return commonFields[this.currentPage] || [];
+    }
+
+    handleEditSubmit() {
+        const fields = this.getFormFields();
+        const data = {};
+        let isValid = true;
+
+        fields.forEach(field => {
+            if (field.type === 'file') {
+                if (this.selectedImageData) {
+                    data[field.id.replace('-', '')] = this.selectedImageData;
+                } else {
+                    data[field.id.replace('-', '')] = this.data[this.editType][this.editIndex][field.id.replace('-', '')];
+                }
+            } else if (field.type === 'select') {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+
+                if (this.currentPage === 'web' && field.id === 'type') {
+                    data.icon = this.getWebIconPath(value);
+                }
+            } else if (field.type === 'date') {
+                const value = document.getElementById(field.id).value;
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = this.formatDateForDisplay(value);
+            } else {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を入力してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+            }
+        });
+
+        if (!isValid) return;
+
+        if (this.editType !== 'news') {
+            data.date = this.data[this.editType][this.editIndex].date;
+        }
+
+        this.data[this.editType][this.editIndex] = data;
+
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
+
+        alert('編集内容を保存しました');
+    }
+
+    showAddModal() {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+
+        title.textContent = `${this.getPageDisplayName()}を追加`;
+
+        const fields = this.getFormFields();
+
+        body.innerHTML = fields.map(field => {
+            if (field.type === 'textarea') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <textarea id="${field.id}" placeholder="${field.placeholder}"></textarea>
+                    </div>
+                `;
+            } else if (field.type === 'file') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <div class="file-input-wrapper">
+                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
+                            <span id="file-name"></span>
+                        </div>
+                        <img id="image-preview" class="image-preview" style="display: none;">
+                    </div>
+                `;
+            } else if (field.type === 'date') {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <input type="date" id="${field.id}" placeholder="">
+                    </div>
+                `;
+            } else if (field.type === 'select') {
+                const options = field.options.map(option =>
+                    `<option value="${option}">${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+                ).join('');
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <select id="${field.id}">
+                            <option value="">選択してください</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="form-group">
+                        <label for="${field.id}">${field.label}</label>
+                        <input type="${field.type}" id="${field.id}" placeholder="${field.placeholder}">
+                    </div>
+                `;
+            }
+        }).join('');
+
+        if (this.currentPage === 'web') {
+            setTimeout(() => {
+                const typeSelect = document.getElementById('type');
+                const iconPreview = document.getElementById('service-icon-preview');
+                const iconImage = document.getElementById('service-icon-image');
+                if (typeSelect) {
+                    typeSelect.addEventListener('change', () => {
+                        const selectedType = typeSelect.value;
+                        if (selectedType) {
+                            iconImage.src = this.getWebIconPath(selectedType);
+                            iconImage.alt = selectedType;
+                            iconPreview.style.display = 'block';
+                        } else {
+                            iconPreview.style.display = 'none';
+                        }
+                    });
+                }
+            }, 100);
+        }
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    showServerSettingsModal() {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+
+        title.textContent = 'サーバー設定';
+
+        const currentConfig = this.data.serverConfig || {};
+
+        body.innerHTML = `
+            <div class="form-group">
+                <label for="server-address">サーバーアドレス</label>
+                <input type="text" id="server-address" value="${currentConfig.address || ''}" placeholder="example.com または 192.168.1.1:25565">
+            </div>
+            <div class="form-group">
+                <label for="server-type">サーバータイプ</label>
+                <select id="server-type">
+                    <option value="Vanilla" ${currentConfig.serverType === 'Vanilla' ? 'selected' : ''}>Vanilla</option>
+                    <option value="Spigot" ${currentConfig.serverType === 'Spigot' ? 'selected' : ''}>Spigot</option>
+                    <option value="Paper" ${currentConfig.serverType === 'Paper' ? 'selected' : ''}>Paper</option>
+                    <option value="Forge" ${currentConfig.serverType === 'Forge' ? 'selected' : ''}>Forge</option>
+                    <option value="Fabric" ${currentConfig.serverType === 'Fabric' ? 'selected' : ''}>Fabric</option>
+                    <option value="BungeeCord" ${currentConfig.serverType === 'BungeeCord' ? 'selected' : ''}>BungeeCord</option>
+                    <option value="Velocity" ${currentConfig.serverType === 'Velocity' ? 'selected' : ''}>Velocity</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="server-application">参加方法</label>
+                <textarea id="server-application" placeholder="サーバーへの参加方法を記載してください">${currentConfig.application || ''}</textarea>
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    handleModalSubmit() {
+        const fields = this.getFormFields();
+        const data = {};
+        let isValid = true;
+
+        fields.forEach(field => {
+            if (field.type === 'file') {
+                if (this.selectedImageData) {
+                    data[field.id.replace('-', '')] = this.selectedImageData;
+                } else {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                }
+            } else if (field.type === 'select') {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+
+                if (this.currentPage === 'web' && field.id === 'type') {
+                    data.icon = this.getWebIconPath(value);
+                }
+            } else if (field.type === 'date') {
+                const value = document.getElementById(field.id).value;
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = this.formatDateForDisplay(value);
+            } else {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を入力してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+            }
+        });
+
+        if (!isValid) return;
+
+        if (this.currentPage === 'news') {
+            data.date = this.getCurrentDateString();
+        }
+
+        if (this.currentPage === 'web') {
+            this.data[this.currentPage].push(data);
+        } else {
+            this.data[this.currentPage].unshift(data);
+        }
+
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
+    }
+
+    handleServerSettingsSubmit() {
+        const address = document.getElementById('server-address').value.trim();
+        const serverType = document.getElementById('server-type').value;
+        const application = document.getElementById('server-application').value.trim();
+
+        if (!address) {
+            alert('サーバーアドレスを入力してください');
+            return;
+        }
+
+        this.data.serverConfig = {
+            address: address,
+            serverType: serverType,
+            application: application
+        };
+
+        this.saveData();
+        this.hideModal();
+
+        if (this.currentPage === 'server') {
+            this.fetchServerStatus();
+            this.startServerStatusUpdates();
+            this.renderServer();
+        }
+
+        alert('サーバー設定を保存しました');
+    }
+
+    handleContactSubmit() {
+        const title = document.getElementById('contact-title').value.trim();
+        const content = document.getElementById('contact-content').value.trim();
+
+        if (!title || !content) {
+            alert('件名と内容を入力してください');
+            return;
+        }
+
+        const contactItem = {
+            title: title,
+            content: content,
+            date: this.getCurrentDateString(),
+            sender: this.isLoggedIn ? this.formatDisplayName(this.currentUser) : 'ゲスト'
+        };
+
+        this.data.contact.unshift(contactItem);
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
+
+        alert('お問い合わせを送信しました');
+    }
+
+    handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            alert('画像ファイルを選択してください');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.selectedImageData = e.target.result;
+            const preview = document.getElementById('image-preview');
+            const fileName = document.getElementById('file-name');
+            if (preview) {
+                preview.src = this.selectedImageData;
+                preview.style.display = 'block';
+            }
+            if (fileName) {
+                fileName.textContent = file.name;
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    getWebIconPath(type) {
+        const iconMap = {
+            'discord': 'discord.png',
+            'youtube': 'youtube.png',
+            'twitter': 'twitter.png'
+        };
+        return iconMap[type] || 'default.png';
+    }
+
+    // サーバー状態管理機能
+    startServerStatusUpdates() {
+        if (this.serverUpdateInterval) {
+            clearInterval(this.serverUpdateInterval);
+        }
+
+        this.serverUpdateInterval = setInterval(() => {
+            if (this.data.serverConfig && this.data.serverConfig.address) {
+                this.fetchServerStatus();
+            }
+        }, 5000);
+
+        console.log('サーバー状態の定期更新を開始（5秒間隔）');
+    }
+
+    stopServerStatusUpdates() {
+        if (this.serverUpdateInterval) {
+            clearInterval(this.serverUpdateInterval);
+            this.serverUpdateInterval = null;
+        }
+    }
+
+    async fetchServerStatus() {
+        if (!this.data.serverConfig || !this.data.serverConfig.address) {
+            return;
+        }
+
+        const address = this.data.serverConfig.address;
+        const serverType = this.data.serverConfig.serverType;
+
+        try {
+            const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
+
+            if (response.status === 429) {
+                console.warn('API制限に達しました。60秒後に再試行します');
+                setTimeout(() => {
+                    this.updateFailureCount = 0;
+                    console.log('API制限が解除されました');
+                }, 60000);
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (!data || data.online === undefined) {
+                throw new Error('Invalid API response');
+            }
+
+            let version = 'Unknown';
+            let players = { online: 0, max: 0, sample: [] };
+
+            if (data.players) {
+                players.online = data.players.online || 0;
+                players.max = data.players.max || 0;
+                if (data.players.sample && data.players.sample.length > 0) {
+                    players.sample = data.players.sample;
+                }
+            }
+
+            if (serverType === 'BungeeCord' || serverType === 'Velocity') {
+                version = this.extractProxyLobbyVersion([data], serverType);
+            } else {
+                version = this.extractServerVersion([data]);
+            }
+
+            this.serverStatus = {
+                online: data.online === true,
+                players: players,
+                version: version,
+                motd: data.motd ? (data.motd.clean || data.motd) : 'No MOTD',
+                lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
+            };
+
+            this.updateFailureCount = 0;
+            this.lastSuccessfulUpdate = Date.now();
+
+            if (this.currentPage === 'server') {
+                this.renderServer();
+            }
+
+        } catch (error) {
+            console.error('サーバー状態取得エラー:', error);
+            this.updateFailureCount++;
+
+            if (this.updateFailureCount >= this.maxFailures) {
+                this.serverStatus = null;
+                console.warn(`API取得に${this.updateFailureCount}/${this.maxFailures}回失敗しました`);
+                return;
+            }
+
+            this.serverStatus = {
+                online: false,
+                players: { online: 0, max: 0, sample: [] },
+                version: 'Status unavailable',
+                motd: 'Connection failed...',
+                lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
+            };
+
+            if (this.currentPage === 'server') {
+                this.renderServer();
+            }
+        }
+    }
+
+    extractProxyLobbyVersion(results, serverType) {
+        for (const data of results) {
+            if (data.version) {
+                const detailedVersionMatch = data.version.match(/(1\.21\.|1\.20\.|1\.19\.|1\.18\.|1\.17\.|1\.16\.|1\.15\.|1\.14\.|1\.13\.|1\.12\.|1\.11\.|1\.10\.|1\.9\.|1\.8\.)/);
+                if (detailedVersionMatch) {
+                    return `v${detailedVersionMatch[0]}`;
+                }
+                const generalVersionMatch = data.version.match(/(1\.\d+)/);
+                if (generalVersionMatch) {
+                    return `v${generalVersionMatch[0]}`;
+                }
+            }
+
+            if (data.software && data.software.version) {
+                const softwareVersion = data.software.version;
+                if (!softwareVersion.toLowerCase().includes('proxy') &&
+                    !softwareVersion.toLowerCase().includes('bungeecord') &&
+                    !softwareVersion.toLowerCase().includes('velocity') &&
+                    !softwareVersion.toLowerCase().includes('waterfall')) {
+                    const detailedVersionMatch = softwareVersion.match(/(1\.21\.|1\.20\.|1\.19\.|1\.18\.|1\.17\.|1\.16\.|1\.15\.|1\.14\.|1\.13\.|1\.12\.|1\.11\.|1\.10\.|1\.9\.|1\.8\.)/);
+                    if (detailedVersionMatch) {
+                        return `v${detailedVersionMatch[0]}`;
+                    }
+                    const generalVersionMatch = softwareVersion.match(/(1\.\d+)/);
+                    if (generalVersionMatch) {
+                        return `v${generalVersionMatch[0]}`;
+                    }
+                }
+            }
+
+            if (data.protocol && data.protocol.version) {
+                const exactVersionMap = {
+                    770: '1.21.5', 769: '1.21.4', 768: '1.21.3', 767: '1.21.2', 765: '1.21.1', 763: '1.21',
+                    762: '1.20.6', 761: '1.20.5', 760: '1.20.4', 759: '1.20.3', 758: '1.20.2', 757: '1.20.1', 756: '1.20',
+                    755: '1.19.4', 754: '1.19.3', 753: '1.19.2', 752: '1.19.1', 751: '1.19',
+                    750: '1.18.2', 749: '1.18.1', 748: '1.18',
+                    747: '1.17.1', 746: '1.17',
+                    745: '1.16.5', 744: '1.16.4', 743: '1.16.3', 742: '1.16.2', 741: '1.16.1', 740: '1.16',
+                    578: '1.15.2', 577: '1.15.1', 575: '1.15',
+                    498: '1.14.4', 490: '1.14.3', 485: '1.14.2', 480: '1.14.1', 477: '1.14',
+                    404: '1.13.2', 401: '1.13.1', 393: '1.13',
+                    340: '1.12.2', 338: '1.12.1', 335: '1.12',
+                    316: '1.11.2', 315: '1.11.1', 315: '1.11',
+                    210: '1.10.2', 210: '1.10.1', 210: '1.10',
+                    184: '1.9.4', 183: '1.9.3', 176: '1.9.2', 175: '1.9.1', 169: '1.9',
+                    47: '1.8.9'
+                };
+                
+                const protocolVersion = data.protocol.version;
+                if (exactVersionMap[protocolVersion]) {
+                    return `v${exactVersionMap[protocolVersion]}`;
+                }
+            }
+        }
+
+        return 'Unknown Version';
+    }
+
+    extractServerVersion(results) {
+        for (const data of results) {
+            if (data.version && data.version.match(/1\.\d+/)) {
+                return `v${data.version}`;
+            }
+            if (data.software && data.software.version) {
+                return `v${data.software.version}`;
+            }
+            if (data.protocol && data.protocol.version) {
+                const versionMap = {
+                    768: '1.21.5', 767: '1.21.4', 766: '1.21.3', 765: '1.21.2', 764: '1.21.1', 763: '1.21',
+                    762: '1.20.6', 761: '1.20.5', 760: '1.20.4', 759: '1.20.3', 758: '1.20.2', 757: '1.20.1', 756: '1.20',
+                    755: '1.19.4', 754: '1.19.3', 753: '1.19.2', 752: '1.19.1', 751: '1.19',
+                    47: '1.8.9'
+                };
+                return versionMap[data.protocol.version] ? `v${versionMap[data.protocol.version]}` : `Protocol ${data.protocol.version}`;
+            }
+        }
+        return 'Unknown';
+    }
 }
 
 // グローバルインスタンス

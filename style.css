@@ -936,6 +936,12 @@ body {
     color: white !important;
 }
 
+/* 複数選択防止の強化 */
+.account-nav-item.active:not(:only-child) ~ .account-nav-item.active {
+    background: #f8f9fa !important;
+    color: #666 !important;
+}
+
 .account-actions {
     padding-top: 20px;
     border-top: 1px solid #eee;
@@ -1339,13 +1345,14 @@ body {
     color: #666;
 }
 
-/* パスワード入力中の透過防止 */
+/* プロンプト表示中の完全制御 */
 body.prompt-active {
-    pointer-events: none;
+    pointer-events: none !important;
+    user-select: none !important;
 }
 
-body.prompt-active .modal-overlay {
-    pointer-events: auto;
+body.prompt-active * {
+    pointer-events: none !important;
 }
 
 /* レスポンシブ（タブレット） */
