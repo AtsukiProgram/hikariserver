@@ -39,7 +39,7 @@ class LightServerWebsite {
         this.userWebs = [];
         this.adminOverride = false;
         this.isPromptActive = false;
-        this.currentAccountTab = 'web'; // アカウントタブの状態保存
+        this.currentAccountTab = 'web';
 
         this.data = {
             news: [],
@@ -49,7 +49,7 @@ class LightServerWebsite {
             roadmap: [],
             contact: [],
             users: [],
-            userPermissions: {}, // 実際のユーザー権限管理
+            userPermissions: {},
             serverConfig: null
         };
 
@@ -92,7 +92,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（完全修正版）');
+        console.log('光鯖公式ホームページ初期化完了（元のデザイン対応版）');
     }
 
     getDiscordAuthURL() {
@@ -245,26 +245,22 @@ class LightServerWebsite {
         alert('Discord認証に失敗しました。');
     }
 
-    // ★★★ 本格的なユーザー権限管理システム ★★★
     checkUserPermissions() {
         if (!this.currentUser) {
             this.userMode = 'guest';
             return;
         }
 
-        // Firebase/localStorageからユーザー権限を取得
         const savedPermission = localStorage.getItem(`user_permission_${this.currentUser.id}`);
         if (savedPermission) {
             this.userMode = savedPermission;
         } else {
-            // 初回ログイン時はmemberに設定
             this.userMode = 'member';
             this.saveUserPermission(this.currentUser.id, 'member');
         }
 
         console.log(`ユーザー権限: ${this.userMode}`);
 
-        // UI更新
         setTimeout(() => {
             this.updateUI();
         }, 100);
@@ -272,7 +268,6 @@ class LightServerWebsite {
 
     saveUserPermission(userId, permission) {
         localStorage.setItem(`user_permission_${userId}`, permission);
-        // Firebaseにも保存
         if (this.data.userPermissions) {
             this.data.userPermissions[userId] = permission;
             this.saveData();
@@ -309,7 +304,6 @@ class LightServerWebsite {
             }
         }
 
-        // アカウントタブの状態を復元
         this.currentAccountTab = localStorage.getItem('current_account_tab') || 'web';
     }
 
@@ -318,7 +312,6 @@ class LightServerWebsite {
         localStorage.removeItem('discord_tokens');
         localStorage.removeItem('login_timestamp');
         localStorage.removeItem('discord_oauth_state');
-        // ユーザー権限は保持（永続化）
 
         this.isLoggedIn = false;
         this.currentUser = null;
@@ -328,14 +321,12 @@ class LightServerWebsite {
         this.adminOverride = false;
     }
 
-    // ユーザー表示名フォーマット（#0問題修正）
     formatDisplayName(user) {
         if (!user) return '';
 
         const username = user.global_name || user.username;
         const discriminator = user.discriminator;
 
-        // discriminator が '0' や '0000' の場合は表示しない
         if (!discriminator || discriminator === '0' || discriminator === '0000') {
             return username;
         }
@@ -343,7 +334,6 @@ class LightServerWebsite {
         return `${username}#${discriminator}`;
     }
 
-    // ログインUI更新（#0問題修正版）
     updateLoginUI() {
         const loginBtn = document.getElementById('loginBtn');
         const navText = loginBtn.querySelector('.nav-text');
@@ -354,7 +344,6 @@ class LightServerWebsite {
             navJapanese.textContent = 'アカウント';
             loginBtn.dataset.page = 'account';
 
-            // 表示名を正しくフォーマット（#0問題解決）
             const displayName = this.formatDisplayName(this.currentUser);
 
             if (window.innerWidth <= 768 && displayName.length > 8) {
@@ -384,7 +373,6 @@ class LightServerWebsite {
     setupEventListeners() {
         document.querySelectorAll('.nav-link').forEach(link => {
             const handleNavClick = (e) => {
-                // プロンプト中は全てのナビゲーションを無視
                 if (this.isPromptActive) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -574,7 +562,6 @@ class LightServerWebsite {
         hamburger.classList.remove('active');
     }
 
-    // アカウントページレンダリング（#0問題修正版）
     renderAccountPage() {
         if (!this.currentUser) return;
 
@@ -583,10 +570,8 @@ class LightServerWebsite {
             ? `https://cdn.discordapp.com/avatars/${this.currentUser.id}/${this.currentUser.avatar}.png?size=128`
             : `https://cdn.discordapp.com/embed/avatars/${this.currentUser.discriminator % 5}.png`;
 
-        // 表示名を正しくフォーマット
         const displayName = this.formatDisplayName(this.currentUser);
 
-        // ★★★ 管理者認証機能をメンバー表示部分に追加 ★★★
         const userRoleHtml = `
             <div class="user-role" id="member-role-display">${this.getUserRoleDisplay()}</div>
         `;
@@ -597,7 +582,6 @@ class LightServerWebsite {
             ${userRoleHtml}
         `;
 
-        // メンバー部分にShift+Ctrl+クリック認証を追加
         setTimeout(() => {
             const memberRoleElement = document.getElementById('member-role-display');
             if (memberRoleElement && this.userMode !== 'admin') {
@@ -606,14 +590,12 @@ class LightServerWebsite {
                         e.preventDefault();
                         e.stopPropagation();
 
-                        // パスワード入力中フラグON
                         this.isPromptActive = true;
                         document.body.classList.add('prompt-active');
 
                         setTimeout(() => {
                             const password = prompt('管理者パスワードを入力してください:');
 
-                            // フラグOFF
                             this.isPromptActive = false;
                             document.body.classList.remove('prompt-active');
 
@@ -623,7 +605,7 @@ class LightServerWebsite {
 
                                 this.updateLoginUI();
                                 this.updateUI();
-                                this.renderAccountPage(); // アカウントページ全体を再描画
+                                this.renderAccountPage();
 
                                 alert('管理者権限を取得しました');
                             } else if (password) {
@@ -636,7 +618,7 @@ class LightServerWebsite {
         }, 100);
 
         this.setupAccountTabs();
-        this.showAccountTab(this.currentAccountTab); // 保存されたタブを表示
+        this.showAccountTab(this.currentAccountTab);
     }
 
     getUserRoleDisplay() {
@@ -647,18 +629,14 @@ class LightServerWebsite {
         }
     }
 
-    // アカウントタブ設定（状態保存対応・複数選択防止）
     setupAccountTabs() {
-        // 既存のタブボタンを全て取得
         const tabButtons = document.querySelectorAll('.account-nav-item');
 
-        // 全てのイベントリスナーをクリア
         tabButtons.forEach(button => {
             const newButton = button.cloneNode(true);
             button.parentNode.replaceChild(newButton, button);
         });
 
-        // 新しいイベントリスナーを設定
         const newTabButtons = document.querySelectorAll('.account-nav-item');
         newTabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
@@ -667,15 +645,12 @@ class LightServerWebsite {
 
                 const tab = button.dataset.tab;
 
-                // ★★★ 全てのタブを非選択に ★★★
                 document.querySelectorAll('.account-nav-item').forEach(btn => {
                     btn.classList.remove('active');
                 });
 
-                // ★★★ クリックされたタブのみアクティブに ★★★
                 button.classList.add('active');
 
-                // 状態を保存
                 this.currentAccountTab = tab;
                 localStorage.setItem('current_account_tab', tab);
 
@@ -689,7 +664,6 @@ class LightServerWebsite {
             tab.classList.remove('active');
         });
 
-        // タブボタンの状態も同期
         document.querySelectorAll('.account-nav-item').forEach(btn => {
             btn.classList.remove('active');
         });
@@ -753,7 +727,6 @@ class LightServerWebsite {
         }
     }
 
-    // ★★★ 本格実装：実際のユーザー権限管理 ★★★
     renderPermissionsTab() {
         const permissionsContent = document.getElementById('permissions-content');
 
@@ -778,12 +751,10 @@ class LightServerWebsite {
         }
     }
 
-    // ★★★ 実際のユーザーリストレンダリング（本格実装） ★★★
     renderRealUsersList() {
         const usersList = document.getElementById('users-list');
         if (!usersList) return;
 
-        // 実際にログインした全ユーザーのリストを取得
         const allUsers = this.getAllRegisteredUsers();
 
         usersList.innerHTML = '';
@@ -824,11 +795,9 @@ class LightServerWebsite {
         }
     }
 
-    // 全登録ユーザー取得（本格実装）
     getAllRegisteredUsers() {
         const users = [];
 
-        // localStorageからDiscordユーザー情報を取得
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && key.startsWith('user_info_')) {
@@ -844,27 +813,22 @@ class LightServerWebsite {
             }
         }
 
-        // 現在のユーザーも追加（まだ保存されていない場合）
         if (this.currentUser && !users.find(u => u.id === this.currentUser.id)) {
             users.push(this.currentUser);
-            // 現在のユーザー情報を保存
             localStorage.setItem(`user_info_${this.currentUser.id}`, JSON.stringify(this.currentUser));
         }
 
         return users;
     }
 
-    // ★★★ 実際のユーザー権限変更（本格実装） ★★★
     updateUserRole(userId, newRole) {
         if (this.userMode !== 'admin') {
             alert('権限がありません。');
             return;
         }
 
-        // 権限をlocalStorageに保存
         this.saveUserPermission(userId, newRole);
 
-        // 現在のユーザー自身の場合はuserModeも更新
         if (this.currentUser && this.currentUser.id === userId) {
             this.userMode = newRole;
             this.updateLoginUI();
@@ -886,7 +850,6 @@ class LightServerWebsite {
         }
     }
 
-    // ★★★ 画像選択対応のウェブモーダル ★★★
     showAddUserWebModal() {
         this.modalType = 'add-user-web';
         const modal = document.getElementById('modal-overlay');
@@ -938,7 +901,7 @@ class LightServerWebsite {
             id: Date.now().toString(),
             title: title,
             url: url,
-            icon: this.selectedImageData || this.getWebIconFromURL(url), // 画像が選択されていればそれを使用
+            icon: this.selectedImageData || this.getWebIconFromURL(url),
             created: new Date().toISOString(),
             userId: this.currentUser.id
         };
@@ -1125,7 +1088,6 @@ class LightServerWebsite {
         });
     }
 
-    // UI更新（権限判定修正版）
     updateUI() {
         const plusBtn = document.getElementById('admin-plus-btn');
         const setBtn = document.getElementById('admin-set-btn');
@@ -1135,7 +1097,6 @@ class LightServerWebsite {
         let showPlusBtn = false;
         let showSetBtn = false;
 
-        // 権限判定を厳密に行う
         if (this.currentPage !== 'top' && this.currentPage !== 'login' && this.currentPage !== 'account') {
             if (this.userMode === 'admin') {
                 if (this.currentPage === 'server') {
@@ -1149,14 +1110,11 @@ class LightServerWebsite {
                     showSetBtn = false;
                 }
             } else if (this.userMode === 'member' && (this.currentPage === 'member' || this.currentPage === 'contact')) {
-                // メンバー権限の確認を厳密に
                 if (this.isLoggedIn && this.currentUser) {
                     showPlusBtn = true;
                     showSetBtn = false;
                 }
-            }
-            // guestユーザーには何も表示しない
-            else if (this.userMode === 'guest') {
+            } else if (this.userMode === 'guest') {
                 showPlusBtn = false;
                 showSetBtn = false;
             }
@@ -1291,10 +1249,10 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // ★★★ ロードマップ完了/未完了トグル機能付き ★★★
     renderRoadmap() {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
+
         this.data.roadmap.sort((a, b) => {
             try {
                 const dateA = this.parseJapaneseDate(a.date);
@@ -1308,20 +1266,35 @@ class LightServerWebsite {
                 return 0;
             }
         });
+
+        const timeline = document.createElement('div');
+        timeline.className = 'roadmap-timeline';
+
+        const completedCount = this.data.roadmap.filter(item => item.completed === true).length;
+        const totalCount = this.data.roadmap.length;
+
+        if (completedCount === 0) {
+            timeline.classList.add('all-incomplete');
+        } else if (completedCount === totalCount) {
+            timeline.classList.add('all-completed');
+        } else {
+            timeline.classList.add('mixed-status');
+        }
+
         this.data.roadmap.forEach((item, index) => {
             const element = this.createRoadmapElement(item, index);
-            container.appendChild(element);
+            timeline.appendChild(element);
         });
+
+        container.appendChild(timeline);
         this.updateUI();
     }
 
-    // ★★★ ロードマップ専用要素作成（完了/未完了トグル対応） ★★★
     createRoadmapElement(item, index) {
         const div = document.createElement('div');
         const isCompleted = item.completed === true;
         div.className = `roadmap-item ${isCompleted ? 'completed' : 'incomplete'}`;
 
-        // 管理者の場合はクリック可能な青丸を追加
         const circleHtml = this.userMode === 'admin'
             ? `<div class="roadmap-toggle-circle ${isCompleted ? 'completed' : 'incomplete'}" 
                     onclick="lightServer.toggleRoadmapStatus(${index})" 
@@ -1356,7 +1329,6 @@ class LightServerWebsite {
         return div;
     }
 
-    // ★★★ ロードマップ完了/未完了トグル機能 ★★★
     toggleRoadmapStatus(index) {
         if (this.userMode !== 'admin') {
             return;
@@ -1390,7 +1362,6 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // ★★★ サーバータブ（プレイヤー情報削除・バージョンは設定から） ★★★
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -1837,7 +1808,7 @@ class LightServerWebsite {
                         <label for="${field.id}">${field.label}</label>
                         <div class="file-input-wrapper">
                             <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
-                            <span id="file-name"></span>
+                            <span id="file-name">画像が選択されていません</span>
                         </div>
                         <img id="image-preview" class="image-preview" style="display: none;">
                     </div>
@@ -1846,7 +1817,7 @@ class LightServerWebsite {
                 return `
                     <div class="form-group">
                         <label for="${field.id}">${field.label}</label>
-                        <input type="date" id="${field.id}" placeholder="">
+                        <input type="date" id="${field.id}">
                     </div>
                 `;
             } else if (field.type === 'select') {
@@ -1872,31 +1843,10 @@ class LightServerWebsite {
             }
         }).join('');
 
-        if (this.currentPage === 'web') {
-            setTimeout(() => {
-                const typeSelect = document.getElementById('type');
-                const iconPreview = document.getElementById('service-icon-preview');
-                const iconImage = document.getElementById('service-icon-image');
-                if (typeSelect) {
-                    typeSelect.addEventListener('change', () => {
-                        const selectedType = typeSelect.value;
-                        if (selectedType) {
-                            iconImage.src = this.getWebIconPath(selectedType);
-                            iconImage.alt = selectedType;
-                            iconPreview.style.display = 'block';
-                        } else {
-                            iconPreview.style.display = 'none';
-                        }
-                    });
-                }
-            }, 100);
-        }
-
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }
 
-    // ★★★ サーバー設定モーダル（バージョン設定対応） ★★★
     showServerSettingsModal() {
         const modal = document.getElementById('modal-overlay');
         const title = document.getElementById('modal-title');
@@ -1988,7 +1938,7 @@ class LightServerWebsite {
         }
 
         if (this.currentPage === 'roadmap') {
-            data.completed = false; // 新規ロードマップは未完了状態
+            data.completed = false;
         }
 
         if (this.currentPage === 'web') {
@@ -2090,7 +2040,6 @@ class LightServerWebsite {
         return iconMap[type] || 'default.png';
     }
 
-    // サーバー状態管理機能（簡素版）
     startServerStatusUpdates() {
         if (this.serverUpdateInterval) {
             clearInterval(this.serverUpdateInterval);
@@ -2179,11 +2128,10 @@ class LightServerWebsite {
     }
 }
 
-// グローバルインスタンス
 let lightServer;
 
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（完全修正・全機能対応版）');
+    console.log('光鯖公式ホームページ初期化完了（元のデザイン対応・完全版）');
 });
