@@ -11,7 +11,7 @@ body {
     line-height: 1.6;
 }
 
-/* ロゴ（常時表示） */
+/* ロゴ */
 #logo {
     position: fixed;
     top: 10px;
@@ -23,7 +23,7 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* ナビゲーション */
+/* ナビゲーション（元のシンプルデザイン） */
 #navbar {
     position: fixed;
     top: 0;
@@ -257,7 +257,7 @@ body {
     background: #c0392b;
 }
 
-/* メンバーリスト（1列固定） */
+/* メンバーリスト */
 .member-list {
     display: flex;
     flex-direction: column;
@@ -299,7 +299,7 @@ body {
     color: #555;
 }
 
-/* WEBグリッド（1行に2個まで、統一サイズ） */
+/* WEBグリッド */
 .web-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -349,7 +349,7 @@ body {
     color: white;
 }
 
-/* ロードマップタイムライン */
+/* ★★★ ロードマップタイムライン（完了/未完了トグル対応） ★★★ */
 .roadmap-timeline {
     position: relative;
     padding-left: 30px;
@@ -362,7 +362,21 @@ body {
     top: 0;
     bottom: 0;
     width: 2px;
-    background: linear-gradient(to bottom, #3498db 0%, #95a5a6 100%);
+    background: #3498db;
+    z-index: 0;
+}
+
+/* 完了状態のタイムライン */
+.roadmap-timeline.all-completed::before {
+    background: #95a5a6 !important;
+}
+
+.roadmap-timeline.mixed-status::before {
+    background: linear-gradient(to bottom, #3498db 0%, #95a5a6 50%, #95a5a6 100%);
+}
+
+.roadmap-timeline.all-incomplete::before {
+    background: #3498db !important;
 }
 
 .roadmap-item {
@@ -373,17 +387,7 @@ body {
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     position: relative;
     transition: all 0.3s ease;
-}
-
-.roadmap-item::before {
-    content: '';
-    position: absolute;
-    left: -37px;
-    top: 30px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #3498db;
+    z-index: 1;
 }
 
 /* ★★★ ロードマップ完了/未完了トグル機能 ★★★ */
@@ -410,34 +414,60 @@ body {
     box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
 }
 
+/* 完了状態の色（強制適用） */
 .roadmap-toggle-circle.completed,
 .roadmap-circle.completed {
-    background: #3498db;
-    border: 2px solid #3498db;
+    background: #95a5a6 !important;
+    border: 2px solid #95a5a6 !important;
 }
 
+.roadmap-toggle-circle.completed:hover {
+    box-shadow: 0 0 10px rgba(149, 165, 166, 0.5) !important;
+}
+
+/* 未完了状態の色 */
 .roadmap-toggle-circle.incomplete,
 .roadmap-circle.incomplete {
-    background: #95a5a6;
-    border: 2px solid #95a5a6;
+    background: #3498db !important;
+    border: 2px solid #3498db !important;
 }
 
+/* 完了アイテムのスタイル */
 .roadmap-item.completed {
-    opacity: 0.7;
-    background: #f8f9fa;
+    opacity: 0.6 !important;
+    background: #f8f9fa !important;
 }
 
 .roadmap-item.completed h3 {
-    text-decoration: line-through;
-    color: #95a5a6;
+    text-decoration: line-through !important;
+    color: #95a5a6 !important;
 }
 
 .roadmap-item.completed .roadmap-content {
-    color: #95a5a6;
+    color: #95a5a6 !important;
 }
 
+.roadmap-item.completed .roadmap-date {
+    color: #95a5a6 !important;
+}
+
+/* 未完了アイテムのスタイル */
 .roadmap-item.incomplete {
     opacity: 1;
+    background: white;
+}
+
+.roadmap-item.incomplete h3 {
+    text-decoration: none;
+    color: #2c3e50;
+}
+
+.roadmap-item.incomplete .roadmap-content {
+    color: #555;
+}
+
+.roadmap-item.incomplete .roadmap-date {
+    color: #3498db;
 }
 
 .roadmap-date {
@@ -526,25 +556,6 @@ body {
     word-break: break-all;
 }
 
-.server-players {
-    font-weight: bold;
-    color: #3498db;
-    font-size: 1.2rem;
-    transition: all 0.1s ease-out;
-}
-
-.server-application {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    margin-top: 20px;
-}
-
-.server-application h4 {
-    color: #2c3e50;
-    margin-bottom: 15px;
-}
-
 .loading-spinner {
     display: inline-block;
     width: 20px;
@@ -585,183 +596,8 @@ body {
     }
 }
 
-/* リアルタイム更新表示強化 */
-.realtime-indicator {
-    margin-left: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-}
-
-.realtime-badge {
-    background: #27ae60;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 0.7rem;
-    font-weight: bold;
-    animation: pulse-badge 1s infinite;
-}
-
-.update-source {
-    font-size: 0.6rem;
-    color: #666;
-}
-
-@keyframes pulse-badge {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-}
-
-/* プレイヤー一覧対応のサーバーレイアウト */
-.server-layout-member-with-players,
-.server-layout-guest-with-players {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: auto auto;
-    gap: 15px;
-    margin-top: 20px;
-}
-
-.server-address-full {
-    grid-column: 1 / -1;
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 8px;
-}
-
-.server-players-section,
-.server-version-section,
-.server-type-section {
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 8px;
-}
-
-.server-application-full {
-    grid-column: 1 / -1;
-    background: #f8f9fa;
-    padding: 15px;
-    border-radius: 8px;
-}
-
-.server-application-content {
-    color: #2c3e50;
-    font-size: 1rem;
-    line-height: 1.5;
-    margin-top: 10px;
-}
-
-/* プレイヤー一覧表示スタイル */
-.server-players-list {
-    margin-top: 20px;
-    border-top: 1px solid #e0e0e0;
-    padding-top: 15px;
-}
-
-.players-list-title {
-    color: #2c3e50;
-    font-size: 1.2rem;
-    margin-bottom: 15px;
-    font-weight: 600;
-}
-
-.players-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.player-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    border-left: 3px solid #27ae60;
-}
-
-.player-item:hover {
-    background: #e9ecef;
-    transform: translateX(2px);
-}
-
-.player-skin {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    background-color: #ddd;
-    border: 1px solid #ccc;
-    flex-shrink: 0;
-}
-
-.player-name {
-    font-size: 1rem;
-    color: #333;
-    font-weight: 500;
-}
-
-.player-status {
-    margin-left: auto;
-    font-size: 0.8rem;
-    color: #27ae60;
-    font-weight: 500;
-}
-
-.no-player-sample {
-    text-align: center;
-    padding: 20px;
-    color: #888;
-    font-style: italic;
-}
-
-.no-sample-text {
-    font-size: 0.9rem;
-}
-
-.large-player-count {
-    font-size: 2rem;
-    font-weight: bold;
-    color: #3498db;
-}
-
-.player-count-label {
-    font-size: 1rem;
-    color: #666;
-    margin-left: 8px;
-}
-
-.player-count-display {
-    text-align: center;
-    margin-bottom: 10px;
-}
-
-.player-sample-note {
-    margin-top: 10px;
-}
-
-.sample-help {
-    font-size: 0.8rem;
-    color: #888;
-    font-style: italic;
-    display: block;
-    margin-top: 5px;
-}
-
-.empty-server-message {
-    text-align: center;
-    color: #999;
-    font-style: italic;
-    padding: 20px;
-}
-
-/* +ボタン */
-.plus-btn {
+/* ★★★ +ボタン（元のシンプルデザイン） ★★★ */
+#admin-plus-btn {
     position: fixed;
     bottom: 30px;
     right: 30px;
@@ -777,36 +613,17 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
-    margin: 0;
     border: none;
-}
-
-.plus-icon {
-    font-size: 2.2rem;
+    font-size: 2rem;
     font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    line-height: 0.8;
-    text-align: center;
-    vertical-align: middle;
-    position: relative;
-    top: -0.05em;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    letter-spacing: 0;
 }
 
-.plus-btn:hover {
+#admin-plus-btn:hover {
     transform: scale(1.1);
 }
 
-/* setボタン */
-.set-btn {
+/* ★★★ ⚙ボタン（元のシンプルデザイン） ★★★ */
+#admin-set-btn {
     position: fixed;
     bottom: 30px;
     right: 100px;
@@ -822,36 +639,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
-    margin: 0;
     border: none;
+    font-size: 1.5rem;
 }
 
-.set-icon {
-    font-size: 1.8rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    line-height: 1;
-    text-align: center;
-    vertical-align: middle;
-    position: relative;
-    top: 0px;
-    font-family: 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
-}
-
-.set-btn:hover {
+#admin-set-btn:hover {
     transform: scale(1.1);
     background: #7f8c8d;
-}
-
-.set-btn.server-page-position {
-    right: 30px !important;
-    bottom: 30px !important;
 }
 
 /* ログインページ */
@@ -911,7 +705,7 @@ body {
     height: 24px;
 }
 
-/* アカウントページ */
+/* ★★★ アカウントページ（元のシンプルデザイン） ★★★ */
 .account-container {
     max-width: 1000px;
     margin: 0 auto;
@@ -941,7 +735,6 @@ body {
     margin-bottom: 10px;
 }
 
-/* ★★★ メンバー権限表示部分（隠し機能・通常時は反応なし） ★★★ */
 .user-role {
     color: #666;
     font-size: 1rem;
@@ -950,16 +743,6 @@ body {
     padding: 4px 8px;
     border-radius: 4px;
     display: inline-block;
-}
-
-/* Shift+Ctrlが押されている時のみホバー効果（JSで制御） */
-.user-role.admin-auth-active {
-    cursor: pointer !important;
-    background: #3498db !important;
-    color: white !important;
-    padding: 8px 12px;
-    border-radius: 6px;
-    transition: all 0.3s ease !important;
 }
 
 .account-nav {
@@ -1501,31 +1284,20 @@ body.prompt-active * {
         align-self: center;
     }
 
-    .plus-btn {
+    #admin-plus-btn {
         bottom: 20px;
         right: 20px;
         width: 50px;
         height: 50px;
+        font-size: 1.5rem;
     }
 
-    .set-btn {
+    #admin-set-btn {
         bottom: 20px;
         right: 80px;
         width: 50px;
         height: 50px;
-    }
-
-    .set-btn.server-page-position {
-        right: 20px !important;
-        bottom: 20px !important;
-    }
-
-    .plus-icon {
-        font-size: 1.8rem;
-    }
-
-    .set-icon {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
     }
 
     .modal {
@@ -1586,11 +1358,6 @@ body.prompt-active * {
         grid-template-columns: 1fr;
     }
 
-    .server-layout-member-with-players,
-    .server-layout-guest-with-players {
-        grid-template-columns: 1fr;
-    }
-
     .roadmap-timeline {
         padding-left: 20px;
     }
@@ -1601,10 +1368,6 @@ body.prompt-active * {
 
     .roadmap-toggle-circle,
     .roadmap-circle {
-        left: -32px;
-    }
-
-    .roadmap-item::before {
         left: -32px;
     }
 }
@@ -1686,8 +1449,8 @@ body.prompt-active * {
 
 /* プリント用スタイル */
 @media print {
-    .plus-btn,
-    .set-btn,
+    #admin-plus-btn,
+    #admin-set-btn,
     .hamburger,
     .edit-btn,
     .delete-btn,
@@ -1730,11 +1493,6 @@ body.prompt-active * {
     }
 }
 
-/* ダークモード対応（将来の拡張用） */
-@media (prefers-color-scheme: dark) {
-    /* ダークモードスタイルは将来実装予定 */
-}
-
 /* フォーカス可視化（アクセシビリティ） */
 button:focus,
 input:focus,
@@ -1774,41 +1532,4 @@ select:focus,
 
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
-}
-
-/* ツールチップ用スタイル（将来の拡張用） */
-[data-tooltip] {
-    position: relative;
-}
-
-[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #333;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-    z-index: 1000;
-    pointer-events: none;
-}
-
-/* 読み込み中のスケルトンスタイル（将来の拡張用） */
-.skeleton {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-}
-
-@keyframes loading {
-    0% {
-        background-position: 200% 0;
-    }
-    100% {
-        background-position: -200% 0;
-    }
 }
