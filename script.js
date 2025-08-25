@@ -40,6 +40,7 @@ class LightServerWebsite {
         this.userHistory = [];
         this.adminOverride = false;
         this.isPromptActive = false;
+        this.allUsers = []; // 全ユーザー一覧
 
         this.data = {
             news: [],
@@ -48,7 +49,7 @@ class LightServerWebsite {
             web: [],
             roadmap: [],
             contact: [],
-            users: [],
+            users: {}, // ユーザー情報と権限を保存
             serverConfig: null
         };
 
@@ -90,7 +91,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（全問題修正版）');
+        console.log('光鯖公式ホームページ初期化完了（アカウント同期対応版）');
     }
 
     getDiscordAuthURL() {
@@ -218,7 +219,7 @@ class LightServerWebsite {
         }
     }
 
-    handleSuccessfulLogin(userData) {
+    async handleSuccessfulLogin(userData) {
         this.isLoggedIn = true;
         this.currentUser = {
             id: userData.id,
@@ -232,50 +233,135 @@ class LightServerWebsite {
         localStorage.setItem('discord_user', JSON.stringify(this.currentUser));
         localStorage.setItem('login_timestamp', Date.now().toString());
 
-        this.checkUserPermissions();
+        // ユーザー情報をFirebaseに保存/更新
+        await this.saveUserToFirebase();
+
+        // 権限をFirebaseから取得
+        await this.loadUserPermissionsFromFirebase();
+
         this.updateLoginUI();
         this.addToUserHistory('Discord認証でログインしました');
         this.showPage('account');
 
-        console.log('ログイン完了:', this.currentUser.username);
+        console.log('ログイン完了:', this.currentUser.username, 'Role:', this.userMode);
+    }
+
+    // ユーザー情報をFirebaseに保存
+    async saveUserToFirebase() {
+        if (!this.currentUser) return;
+
+        try {
+            const userId = this.currentUser.id;
+            const userRef = ref(database, `users/${userId}`);
+            const userSnapshot = await get(userRef);
+
+            const userData = {
+                id: this.currentUser.id,
+                username: this.currentUser.username,
+                discriminator: this.currentUser.discriminator,
+                avatar: this.currentUser.avatar,
+                email: this.currentUser.email,
+                global_name: this.currentUser.global_name,
+                lastLogin: new Date().toISOString(),
+                loginCount: userSnapshot.exists() ? (userSnapshot.val().loginCount || 0) + 1 : 1
+            };
+
+            // 既存ユーザーの場合は権限を保持、新規の場合は'guest'
+            if (!userSnapshot.exists()) {
+                userData.role = 'guest';
+            } else {
+                userData.role = userSnapshot.val().role || 'guest';
+            }
+
+            await set(userRef, userData);
+            console.log('ユーザー情報をFirebaseに保存:', userData.username);
+
+        } catch (error) {
+            console.error('ユーザー情報保存エラー:', error);
+        }
+    }
+
+    // Firebaseからユーザー権限を取得
+    async loadUserPermissionsFromFirebase() {
+        if (!this.currentUser) return;
+
+        try {
+            const userId = this.currentUser.id;
+            const userRef = ref(database, `users/${userId}`);
+            const snapshot = await get(userRef);
+
+            if (snapshot.exists()) {
+                const userData = snapshot.val();
+                this.userMode = userData.role || 'guest';
+                console.log('Firebase権限取得:', this.userMode);
+            } else {
+                this.userMode = 'guest';
+                console.log('新規ユーザー、権限をguestに設定');
+            }
+
+            // UI更新
+            setTimeout(() => {
+                this.updateUI();
+            }, 100);
+
+        } catch (error) {
+            console.error('権限取得エラー:', error);
+            this.userMode = 'guest';
+        }
+    }
+
+    // ユーザー権限をFirebaseで更新
+    async updateUserRoleInFirebase(userId, newRole) {
+        try {
+            const userRef = ref(database, `users/${userId}`);
+            const snapshot = await get(userRef);
+
+            if (snapshot.exists()) {
+                const userData = snapshot.val();
+                userData.role = newRole;
+                userData.roleUpdated = new Date().toISOString();
+
+                await set(userRef, userData);
+                console.log(`ユーザー ${userData.username} の権限を ${newRole} に更新`);
+
+                // 自分自身の権限が変更された場合
+                if (userId === this.currentUser.id) {
+                    this.userMode = newRole;
+                    this.updateUI();
+                    this.renderAccountPage();
+                }
+
+                return true;
+            }
+        } catch (error) {
+            console.error('権限更新エラー:', error);
+            return false;
+        }
+    }
+
+    // 全ユーザーリストを取得
+    async loadAllUsers() {
+        try {
+            const usersRef = ref(database, 'users');
+            const snapshot = await get(usersRef);
+
+            if (snapshot.exists()) {
+                const users = snapshot.val();
+                this.allUsers = Object.values(users).sort((a, b) =>
+                    new Date(b.lastLogin) - new Date(a.lastLogin)
+                );
+                console.log('全ユーザーリスト取得:', this.allUsers.length, '人');
+            } else {
+                this.allUsers = [];
+            }
+        } catch (error) {
+            console.error('ユーザーリスト取得エラー:', error);
+            this.allUsers = [];
+        }
     }
 
     showFallbackAuth() {
         alert('Discord認証に失敗しました。');
-    }
-
-    // 権限チェック（強化版）
-    checkUserPermissions() {
-        if (!this.currentUser) {
-            this.userMode = 'guest';
-            return;
-        }
-
-        // 管理者ID判定
-        const adminIds = [
-            'YOUR_ADMIN_DISCORD_ID_1',
-            'YOUR_ADMIN_DISCORD_ID_2'
-        ];
-
-        if (adminIds.includes(this.currentUser.id)) {
-            this.userMode = 'admin';
-            console.log('管理者として認証されました');
-        } else {
-            // ログイン済みユーザーはmemberに設定
-            this.userMode = 'member';
-            console.log('メンバーとして認証されました');
-        }
-
-        // 管理者オーバーライドチェック
-        if (localStorage.getItem('admin_override') === 'true') {
-            this.userMode = 'admin';
-            this.adminOverride = true;
-        }
-
-        // UI更新を呼び出し
-        setTimeout(() => {
-            this.updateUI();
-        }, 100);
     }
 
     addToUserHistory(action) {
@@ -283,7 +369,8 @@ class LightServerWebsite {
 
         const historyItem = {
             date: new Date().toLocaleString('ja-JP'),
-            action: action
+            action: action,
+            userId: this.currentUser.id
         };
 
         this.userHistory.unshift(historyItem);
@@ -299,7 +386,6 @@ class LightServerWebsite {
     loadLoginState() {
         const savedUser = localStorage.getItem('discord_user');
         const savedTokens = localStorage.getItem('discord_tokens');
-        const adminOverride = localStorage.getItem('admin_override');
 
         if (savedUser && savedTokens) {
             try {
@@ -314,11 +400,8 @@ class LightServerWebsite {
                     this.refreshToken = tokens.refresh_token;
                     this.isLoggedIn = true;
 
-                    this.checkUserPermissions();
-
-                    if (adminOverride === 'true') {
-                        this.adminOverride = true;
-                    }
+                    // Firebaseから権限を取得
+                    this.loadUserPermissionsFromFirebase();
 
                     // ユーザー履歴を読み込み
                     const savedHistory = localStorage.getItem(`user_history_${this.currentUser.id}`);
@@ -342,7 +425,6 @@ class LightServerWebsite {
         localStorage.removeItem('discord_user');
         localStorage.removeItem('discord_tokens');
         localStorage.removeItem('login_timestamp');
-        localStorage.removeItem('admin_override');
         localStorage.removeItem('discord_oauth_state');
 
         this.isLoggedIn = false;
@@ -615,7 +697,7 @@ class LightServerWebsite {
         hamburger.classList.remove('active');
     }
 
-    // アカウントページレンダリング（#0問題修正版）
+    // アカウントページレンダリング（権限管理対応版）
     renderAccountPage() {
         if (!this.currentUser) return;
 
@@ -636,7 +718,7 @@ class LightServerWebsite {
         this.setupAccountTabs();
         this.loadUserWebs();
 
-        // 新しい管理者権限機能：user-roleにCtrl+Shift+左クリックイベント追加
+        // 管理者パスワードトリガー：user-roleにCtrl+Shift+左クリックイベント追加
         setTimeout(() => {
             const userRoleElement = document.querySelector('.user-role');
             if (userRoleElement) {
@@ -647,12 +729,8 @@ class LightServerWebsite {
 
                         const password = prompt('管理者パスワードを入力してください:');
                         if (password === 'atsuki0622') {
-                            this.userMode = 'admin';
-                            this.adminOverride = true;
-                            localStorage.setItem('admin_override', 'true');
+                            this.updateUserRoleInFirebase(this.currentUser.id, 'admin');
                             this.addToUserHistory('管理者権限を取得しました');
-                            this.updateLoginUI();
-                            this.updateUI();
 
                             // 役割表示を更新
                             userRoleElement.textContent = this.getUserRoleDisplay();
@@ -671,7 +749,8 @@ class LightServerWebsite {
         switch (this.userMode) {
             case 'admin': return '管理者';
             case 'member': return 'メンバー';
-            default: return 'ゲスト';
+            case 'guest': return '一般';
+            default: return '一般';
         }
     }
 
@@ -784,37 +863,100 @@ class LightServerWebsite {
         }
     }
 
-    renderPermissionsTab() {
+    // 権限タブのレンダリング（ユーザー管理対応版）
+    async renderPermissionsTab() {
         const permissionsContent = document.getElementById('permissions-content');
-
+        
         if (this.userMode === 'admin') {
+            // 全ユーザーリストを読み込み
+            await this.loadAllUsers();
+            
+            let userListHtml = '';
+            if (this.allUsers.length === 0) {
+                userListHtml = `
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <p>ログインしたユーザーはいません。</p>
+                    </div>
+                `;
+            } else {
+                userListHtml = this.allUsers.map(user => {
+                    const displayName = this.formatDisplayName(user);
+                    const avatarUrl = user.avatar 
+                        ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=40`
+                        : `https://cdn.discordapp.com/embed/avatars/${user.discriminator % 5}.png`;
+                    
+                    return `
+                        <div class="user-permission-item">
+                            <div class="user-permission-info">
+                                <img src="${avatarUrl}" alt="${displayName}" class="user-permission-avatar">
+                                <div>
+                                    <div class="user-permission-name">${displayName}</div>
+                                    <div class="user-permission-id">最終ログイン: ${new Date(user.lastLogin).toLocaleString('ja-JP')}</div>
+                                </div>
+                            </div>
+                            <select class="role-select" onchange="lightServer.changeUserRole('${user.id}', this.value)">
+                                <option value="guest" ${user.role === 'guest' ? 'selected' : ''}>一般</option>
+                                <option value="member" ${user.role === 'member' ? 'selected' : ''}>メンバー</option>
+                                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理者</option>
+                            </select>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
             permissionsContent.innerHTML = `
                 <div class="permission-role">管理者権限</div>
                 <div class="permission-description">
-                    すべての機能にアクセスできます。コンテンツの追加・編集・削除、サーバー設定の変更、ユーザーの権限管理が可能です。
+                    すべての機能にアクセスできます。ユーザーの権限管理も可能です。
                 </div>
-                <h4 style="margin-top: 20px; color: #2c3e50;">管理機能</h4>
-                <ul style="color: #666; margin: 10px 0 0 20px;">
-                    <li>全コンテンツの管理（追加・編集・削除）</li>
-                    <li>サーバー設定の変更</li>
-                    <li>ユーザー権限の管理</li>
-                    <li>データのエクスポート</li>
-                </ul>
+                <h4 style="margin-top: 20px; color: #2c3e50;">ユーザー権限管理</h4>
+                <div class="users-list">
+                    ${userListHtml}
+                </div>
             `;
         } else {
             permissionsContent.innerHTML = `
-                <div class="permission-role">メンバー権限</div>
+                <div class="permission-role">${this.getUserRoleDisplay()}権限</div>
                 <div class="permission-description">
-                    基本的な機能にアクセスできます。個人のウェブリンク管理、お問い合わせの送信が可能です。
+                    ${this.userMode === 'member' ? 
+                        '基本的な機能にアクセスできます。個人のウェブリンク管理、お問い合わせの送信が可能です。' :
+                        '基本的な閲覧機能のみ利用できます。'
+                    }
                 </div>
                 <h4 style="margin-top: 20px; color: #2c3e50;">利用可能な機能</h4>
                 <ul style="color: #666; margin: 10px 0 0 20px;">
-                    <li>個人のウェブリンク管理</li>
-                    <li>お問い合わせの送信</li>
-                    <li>履歴の確認</li>
-                    <li>サーバー情報の閲覧</li>
+                    ${this.userMode === 'member' ? `
+                        <li>個人のウェブリンク管理</li>
+                        <li>お問い合わせの送信</li>
+                        <li>履歴の確認</li>
+                        <li>サーバー情報の閲覧</li>
+                    ` : `
+                        <li>コンテンツの閲覧</li>
+                        <li>サーバー情報の閲覧（限定的）</li>
+                    `}
                 </ul>
             `;
+        }
+    }
+
+    // ユーザー権限変更
+    async changeUserRole(userId, newRole) {
+        if (this.userMode !== 'admin') {
+            alert('権限がありません');
+            return;
+        }
+
+        try {
+            const success = await this.updateUserRoleInFirebase(userId, newRole);
+            if (success) {
+                alert('権限を更新しました');
+                await this.renderPermissionsTab(); // 一覧を再描画
+            } else {
+                alert('権限の更新に失敗しました');
+            }
+        } catch (error) {
+            console.error('権限変更エラー:', error);
+            alert('権限の更新に失敗しました');
         }
     }
 
@@ -823,7 +965,7 @@ class LightServerWebsite {
             this.userWebs = [];
             return;
         }
-
+        
         const savedWebs = localStorage.getItem(`user_webs_${this.currentUser.id}`);
         if (savedWebs) {
             try {
@@ -839,7 +981,7 @@ class LightServerWebsite {
 
     saveUserWebs() {
         if (!this.isLoggedIn || !this.currentUser) return;
-
+        
         localStorage.setItem(`user_webs_${this.currentUser.id}`, JSON.stringify(this.userWebs));
     }
 
@@ -902,16 +1044,16 @@ class LightServerWebsite {
         this.userWebs.push(webItem);
         this.saveUserWebs();
         this.addToUserHistory(`ウェブリンク「${title}」を追加しました`);
-
+        
         this.renderWebTab();
         this.hideModal();
-
+        
         console.log('ユーザーウェブ追加完了:', title);
     }
 
     getWebIconFromURL(url) {
         const domain = new URL(url).hostname.toLowerCase();
-
+        
         const iconMap = {
             'youtube.com': 'youtube.png',
             'youtu.be': 'youtube.png',
@@ -922,13 +1064,13 @@ class LightServerWebsite {
             'github.com': 'github.png',
             'twitch.tv': 'twitch.png'
         };
-
+        
         for (const [key, icon] of Object.entries(iconMap)) {
             if (domain.includes(key)) {
                 return icon;
             }
         }
-
+        
         return 'default.png';
     }
 
@@ -938,7 +1080,7 @@ class LightServerWebsite {
 
         this.modalType = 'edit-user-web';
         this.editIndex = index;
-
+        
         const modal = document.getElementById('modal-overlay');
         const title = document.querySelector('#modal-overlay h3');
         const body = document.getElementById('modal-body');
@@ -995,7 +1137,7 @@ class LightServerWebsite {
 
         this.saveUserWebs();
         this.addToUserHistory(`ウェブリンク「${oldTitle}」を編集しました`);
-
+        
         this.renderWebTab();
         this.hideModal();
     }
@@ -1008,7 +1150,7 @@ class LightServerWebsite {
             this.addToUserHistory(`ウェブリンク「${web.title}」を削除しました`);
             this.userWebs.splice(index, 1);
             this.saveUserWebs();
-
+            
             this.renderWebTab();
         }
     }
@@ -1033,7 +1175,11 @@ class LightServerWebsite {
             if (snapshot.exists()) {
                 const firebaseData = snapshot.val();
                 Object.keys(this.data).forEach(key => {
-                    this.data[key] = firebaseData[key] || (key === 'serverConfig' ? null : []);
+                    if (key === 'users') {
+                        this.data[key] = firebaseData[key] || {};
+                    } else {
+                        this.data[key] = firebaseData[key] || (key === 'serverConfig' ? null : []);
+                    }
                 });
             }
 
@@ -1062,6 +1208,8 @@ class LightServerWebsite {
         Object.keys(this.data).forEach(key => {
             if (key === 'serverConfig') {
                 this.data[key] = JSON.parse(localStorage.getItem(key) || 'null');
+            } else if (key === 'users') {
+                this.data[key] = JSON.parse(localStorage.getItem(key) || '{}');
             } else {
                 this.data[key] = JSON.parse(localStorage.getItem(key) || '[]');
             }
@@ -1115,11 +1263,11 @@ class LightServerWebsite {
             plusBtn.style.display = showPlusBtn ? 'flex' : 'none';
             plusBtn.offsetHeight;
         }
-
+        
         if (setBtn) {
             setBtn.style.display = showSetBtn ? 'flex' : 'none';
             setBtn.offsetHeight;
-
+            
             if (this.currentPage === 'server' && showSetBtn) {
                 setBtn.classList.add('server-page-position');
             } else {
@@ -1243,7 +1391,7 @@ class LightServerWebsite {
     renderRoadmap() {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
-
+        
         this.data.roadmap.sort((a, b) => {
             try {
                 const dateA = this.parseJapaneseDate(a.date);
@@ -1257,15 +1405,15 @@ class LightServerWebsite {
                 return 0;
             }
         });
-
+        
         const timeline = document.createElement('div');
         timeline.className = 'roadmap-timeline';
-
+        
         this.data.roadmap.forEach((item, index) => {
             const element = this.createContentElement(item, index, 'roadmap');
             timeline.appendChild(element);
         });
-
+        
         container.appendChild(timeline);
         this.updateUI();
     }
@@ -1292,7 +1440,7 @@ class LightServerWebsite {
 
     renderServer() {
         const container = document.getElementById('server-info');
-
+        
         if (!this.data.serverConfig) {
             container.innerHTML = `
                 <div class="server-status-card">
@@ -1392,14 +1540,14 @@ class LightServerWebsite {
     forceButtonRefresh() {
         const plusBtn = document.getElementById('admin-plus-btn');
         const setBtn = document.getElementById('admin-set-btn');
-
+        
         if (plusBtn) {
             plusBtn.style.display = 'none';
             setTimeout(() => {
                 this.updateUI();
             }, 10);
         }
-
+        
         if (setBtn) {
             setBtn.style.display = 'none';
             setTimeout(() => {
@@ -1509,6 +1657,15 @@ class LightServerWebsite {
                     window.open(item.url, '_blank');
                 }
             });
+        } else if (type === 'contact') {
+            div.className = 'content-item';
+            div.innerHTML = `
+                <h3>${item.title}</h3>
+                <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
+                <div class="content-date">${item.date} - ${item.sender}</div>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
+                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
+            `;
         } else {
             div.className = 'content-item';
             div.innerHTML = `
@@ -1555,7 +1712,7 @@ class LightServerWebsite {
 
         body.innerHTML = fields.map(field => {
             const currentValue = item[field.id] || '';
-
+            
             if (field.type === 'textarea') {
                 return `
                     <div class="form-group">
@@ -1582,7 +1739,7 @@ class LightServerWebsite {
                     </div>
                 `;
             } else if (field.type === 'select') {
-                const options = field.options.map(option =>
+                const options = field.options.map(option => 
                     `<option value="${option}" ${option === currentValue ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
                 ).join('');
                 return `
@@ -1628,7 +1785,7 @@ class LightServerWebsite {
                     return;
                 }
                 data[field.id] = value;
-
+                
                 if (this.currentPage === 'web' && field.id === 'type') {
                     data.icon = this.getWebIconPath(value);
                 }
@@ -1655,10 +1812,14 @@ class LightServerWebsite {
 
         if (this.editType !== 'news') {
             data.date = this.data[this.editType][this.editIndex].date;
+            if (this.editType === 'contact') {
+                data.sender = this.data[this.editType][this.editIndex].sender;
+                data.userId = this.data[this.editType][this.editIndex].userId;
+            }
         }
 
         this.data[this.editType][this.editIndex] = data;
-
+        
         this.saveData();
         this.renderCurrentPage();
         this.hideModal();
@@ -1761,7 +1922,7 @@ class LightServerWebsite {
                     </div>
                 `;
             } else if (field.type === 'select') {
-                const options = field.options.map(option =>
+                const options = field.options.map(option => 
                     `<option value="${option}">${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
                 ).join('');
                 return `
@@ -1844,7 +2005,7 @@ class LightServerWebsite {
                     return;
                 }
                 data[field.id] = value;
-
+                
                 if (this.currentPage === 'web' && field.id === 'type') {
                     data.icon = this.getWebIconPath(value);
                 }
@@ -1875,6 +2036,9 @@ class LightServerWebsite {
 
         if (this.currentPage === 'contact') {
             data.sender = this.isLoggedIn ? this.formatDisplayName(this.currentUser) : 'ゲスト';
+            if (this.isLoggedIn && this.currentUser) {
+                data.userId = this.currentUser.id;
+            }
         }
 
         if (this.currentPage === 'web') {
@@ -1931,6 +2095,10 @@ class LightServerWebsite {
             date: this.getCurrentDateString(),
             sender: this.isLoggedIn ? this.formatDisplayName(this.currentUser) : 'ゲスト'
         };
+
+        if (this.isLoggedIn && this.currentUser) {
+            contactItem.userId = this.currentUser.id;
+        }
 
         this.data.contact.unshift(contactItem);
         this.saveData();
@@ -2073,5 +2241,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（修正版）');
+    console.log('光鯖公式ホームページ初期化完了（アカウント同期対応版）');
 });
