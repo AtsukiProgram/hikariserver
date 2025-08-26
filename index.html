@@ -98,17 +98,13 @@
                     <span class="nav-text">ROADMAP</span>
                     <span class="nav-japanese">ロードマップ</span>
                 </a>
-                <a href="#contact" data-page="contact" class="nav-link">
-                    <span class="nav-text">CONTACT</span>
-                    <span class="nav-japanese">お問い合わせ</span>
-                </a>
                 <a href="#server" data-page="server" class="nav-link">
                     <span class="nav-text">SERVER</span>
                     <span class="nav-japanese">サーバー</span>
                 </a>
-                <a href="#login" data-page="login" class="nav-link" id="loginBtn">
-                    <span class="nav-text">LOGIN</span>
-                    <span class="nav-japanese">ログイン</span>
+                <a href="#operation" data-page="operation" class="nav-link" id="operationBtn">
+                    <span class="nav-text">OPERATION</span>
+                    <span class="nav-japanese">管理</span>
                 </a>
             </div>
         </div>
@@ -167,89 +163,11 @@
             </div>
         </div>
 
-        <!-- CONTACTページ -->
-        <div id="contact-page" class="page">
-            <div class="page-container">
-                <h2 class="page-title">CONTACT</h2>
-                <div id="contact-list" class="content-list"></div>
-            </div>
-        </div>
-
         <!-- SERVERページ -->
         <div id="server-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">SERVER</h2>
                 <div id="server-info" class="server-info"></div>
-            </div>
-        </div>
-
-        <!-- ACCOUNTページ -->
-        <div id="account-page" class="page">
-            <div class="page-container">
-                <h2 class="page-title">ACCOUNT</h2>
-                <div class="account-container">
-                    <div class="account-sidebar" id="account-sidebar">
-                        <div class="account-user-info" id="account-user-info">
-                            <!-- ユーザー情報が動的に表示 -->
-                        </div>
-                        <nav class="account-nav">
-                            <a href="#" class="account-nav-item active" data-tab="web">ウェブ</a>
-                            <a href="#" class="account-nav-item" data-tab="history">履歴</a>
-                            <a href="#" class="account-nav-item" data-tab="permissions">権限</a>
-                        </nav>
-                        <div class="account-actions">
-                            <button class="btn btn-cancel logout-btn" id="logout-btn">ログアウト</button>
-                        </div>
-                    </div>
-
-                    <div class="account-content">
-                        <!-- ウェブタブ -->
-                        <div id="account-tab-web" class="account-tab active">
-                            <h3>ウェブ管理</h3>
-                            <div class="account-web-actions">
-                                <button class="btn btn-primary" id="add-user-web-btn">ウェブを追加する</button>
-                            </div>
-                            <div id="user-web-list" class="user-web-list">
-                                <!-- ユーザーウェブリスト -->
-                            </div>
-                        </div>
-
-                        <!-- 履歴タブ -->
-                        <div id="account-tab-history" class="account-tab">
-                            <h3>履歴</h3>
-                            <div id="user-history" class="user-history">
-                                <!-- ユーザー履歴 -->
-                            </div>
-                        </div>
-
-                        <!-- 権限タブ -->
-                        <div id="account-tab-permissions" class="account-tab">
-                            <h3>権限</h3>
-                            <div id="permissions-content" class="permissions-content">
-                                <!-- 権限管理 -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- LOGINページ -->
-        <div id="login-page" class="page">
-            <div class="page-container">
-                <h2 class="page-title">LOGIN</h2>
-                <div class="login-container">
-                    <div class="login-card">
-                        <h3>Discordでログイン</h3>
-                        <p>光鯖公式サイトにアクセスするには、Discordでログインしてください。</p>
-                        <button class="btn btn-primary discord-login-btn" id="discord-login-btn">
-                            <span>🎮</span> Discordでログイン
-                        </button>
-                        <div class="login-note">
-                            <p>※ 管理者の方は、Ctrl+Shift+ログインで管理者権限を取得できます。</p>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </main>
@@ -279,6 +197,7 @@
         </div>
     </div>
 
+    <!-- 隠しファイル入力 -->
     <input type="file" id="hidden-file-input" accept="image/*" style="display: none;">
 </body>
 </html>
