@@ -3,7 +3,7 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
         http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  
+
   <!-- メインページ -->
   <url>
     <loc>https://hikaripage.f5.si/</loc>
@@ -11,7 +11,7 @@
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
-  
+
   <!-- 各セクションも個別に登録可能 -->
   <url>
     <loc>https://hikaripage.f5.si/#news</loc>
@@ -19,14 +19,14 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
-  
+
   <url>
     <loc>https://hikaripage.f5.si/#member</loc>
     <lastmod>2025-08-13</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
-  
+
   <url>
     <loc>https://hikaripage.f5.si/#schedule</loc>
     <lastmod>2025-08-13</lastmod>
