@@ -13,7 +13,7 @@ const firebaseConfig = {
     appId: "1:513214205524:web:11369148fb6429fe1567c1"
 };
 
-// Discord OAuth2設定（実際の認証情報）
+// Discord OAuth2設定
 const DISCORD_CONFIG = {
     CLIENT_ID: "1408428315974434906",
     CLIENT_SECRET: "aEhzDpiEnA0sjsnXG7FbX-KZu8176TsK",
@@ -40,10 +40,10 @@ class LightServerWebsite {
         this.userNotifications = [];
         this.adminOverride = false;
         this.isPromptActive = false;
-        this.allUsers = []; // 全ユーザー一覧
-        this.dailyContactCount = 0; // 1日のお問い合わせ回数
-        this.lastContactDate = ''; // 最後にお問い合わせした日
-        this.realtimeListeners = {}; // リアルタイム更新用リスナー
+        this.allUsers = [];
+        this.dailyContactCount = 0;
+        this.lastContactDate = '';
+        this.realtimeListeners = {};
 
         this.data = {
             news: [],
@@ -52,7 +52,7 @@ class LightServerWebsite {
             web: [],
             roadmap: [],
             contact: [],
-            users: {}, // ユーザー情報と権限を保存
+            users: {},
             serverConfig: null
         };
 
@@ -101,7 +101,6 @@ class LightServerWebsite {
 
     // リアルタイム更新の設定
     setupRealtimeUpdates() {
-        // ウェブのリアルタイム更新
         const webRef = ref(database, 'web');
         this.realtimeListeners.web = onValue(webRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -113,7 +112,6 @@ class LightServerWebsite {
             }
         });
 
-        // メンバーのリアルタイム更新
         const memberRef = ref(database, 'member');
         this.realtimeListeners.member = onValue(memberRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -125,7 +123,6 @@ class LightServerWebsite {
             }
         });
 
-        // お問い合わせのリアルタイム更新
         const contactRef = ref(database, 'contact');
         this.realtimeListeners.contact = onValue(contactRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -137,7 +134,6 @@ class LightServerWebsite {
             }
         });
 
-        // ニュースのリアルタイム更新
         const newsRef = ref(database, 'news');
         this.realtimeListeners.news = onValue(newsRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -149,7 +145,6 @@ class LightServerWebsite {
             }
         });
 
-        // スケジュールのリアルタイム更新
         const scheduleRef = ref(database, 'schedule');
         this.realtimeListeners.schedule = onValue(scheduleRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -161,7 +156,6 @@ class LightServerWebsite {
             }
         });
 
-        // ロードマップのリアルタイム更新
         const roadmapRef = ref(database, 'roadmap');
         this.realtimeListeners.roadmap = onValue(roadmapRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -174,7 +168,6 @@ class LightServerWebsite {
         });
     }
 
-    // リアルタイム更新のクリーンアップ
     cleanupRealtimeListeners() {
         Object.keys(this.realtimeListeners).forEach(key => {
             if (this.realtimeListeners[key]) {
@@ -184,7 +177,6 @@ class LightServerWebsite {
         this.realtimeListeners = {};
     }
 
-    // お問い合わせ制限の読み込み
     loadContactLimits() {
         if (!this.isLoggedIn || !this.currentUser) return;
 
@@ -198,7 +190,6 @@ class LightServerWebsite {
                     this.dailyContactCount = data.count;
                     this.lastContactDate = data.date;
                 } else {
-                    // 日付が変わっていたらリセット
                     this.dailyContactCount = 0;
                     this.lastContactDate = today;
                     this.saveContactLimits();
@@ -212,7 +203,6 @@ class LightServerWebsite {
         }
     }
 
-    // お問い合わせ制限の保存
     saveContactLimits() {
         if (!this.isLoggedIn || !this.currentUser) return;
 
@@ -223,14 +213,12 @@ class LightServerWebsite {
         localStorage.setItem(`contact_limits_${this.currentUser.id}`, JSON.stringify(data));
     }
 
-    // お問い合わせ制限のリセット
     resetContactLimits() {
         this.dailyContactCount = 0;
         this.lastContactDate = new Date().toDateString();
         this.saveContactLimits();
     }
 
-    // お問い合わせ可能かチェック
     canSendContact() {
         const today = new Date().toDateString();
         if (this.lastContactDate !== today) {
@@ -240,7 +228,6 @@ class LightServerWebsite {
         return this.dailyContactCount < 3;
     }
 
-    // お問い合わせ回数を増やす
     incrementContactCount() {
         const today = new Date().toDateString();
         if (this.lastContactDate !== today) {
@@ -390,13 +377,9 @@ class LightServerWebsite {
         localStorage.setItem('discord_user', JSON.stringify(this.currentUser));
         localStorage.setItem('login_timestamp', Date.now().toString());
 
-        // ユーザー情報をFirebaseに保存/更新
         await this.saveUserToFirebase();
-
-        // 権限をFirebaseから取得
         await this.loadUserPermissionsFromFirebase();
 
-        // お問い合わせ制限を読み込み
         this.loadContactLimits();
 
         this.updateLoginUI();
@@ -406,7 +389,6 @@ class LightServerWebsite {
         console.log('ログイン完了:', this.currentUser.username, 'Role:', this.userMode);
     }
 
-    // ユーザー情報をFirebaseに保存（修正版）
     async saveUserToFirebase() {
         if (!this.currentUser) return;
 
@@ -426,7 +408,6 @@ class LightServerWebsite {
                 loginCount: userSnapshot.exists() ? (userSnapshot.val().loginCount || 0) + 1 : 1
             };
 
-            // 初回ログイン時間を記録
             if (!userSnapshot.exists()) {
                 userData.role = 'guest';
                 userData.firstLogin = new Date().toISOString();
@@ -443,7 +424,6 @@ class LightServerWebsite {
         }
     }
 
-    // Firebaseからユーザー権限を取得
     async loadUserPermissionsFromFirebase() {
         if (!this.currentUser) return;
 
@@ -461,7 +441,6 @@ class LightServerWebsite {
                 console.log('新規ユーザー、権限をguestに設定');
             }
 
-            // UI更新
             setTimeout(() => {
                 this.updateUI();
             }, 100);
@@ -472,7 +451,6 @@ class LightServerWebsite {
         }
     }
 
-    // ユーザー権限をFirebaseで更新（修正版）
     async updateUserRoleInFirebase(userId, newRole) {
         try {
             const userRef = ref(database, `users/${userId}`);
@@ -486,7 +464,6 @@ class LightServerWebsite {
                 await set(userRef, userData);
                 console.log(`ユーザー ${userData.username} の権限を ${newRole} に更新`);
 
-                // 自分自身の権限が変更された場合のみUI更新
                 if (userId === this.currentUser.id) {
                     this.userMode = newRole;
                 }
@@ -502,7 +479,7 @@ class LightServerWebsite {
         }
     }
 
-    // 全ユーザーリストを取得（初回ログイン順・修正版）
+    // 全ユーザーリストを取得（初回ログイン古い順・修正版）
     async loadAllUsers() {
         try {
             const usersRef = ref(database, 'users');
@@ -510,11 +487,11 @@ class LightServerWebsite {
 
             if (snapshot.exists()) {
                 const users = snapshot.val();
-                // 初回ログイン時間の早い順にソート
+                // 初回ログイン時間の古い順にソート（昇順）
                 this.allUsers = Object.values(users).sort((a, b) =>
                     new Date(a.firstLogin || a.lastLogin) - new Date(b.firstLogin || b.lastLogin)
                 );
-                console.log('全ユーザーリスト更新:', this.allUsers.length, '人（初回ログイン順）');
+                console.log('全ユーザーリスト更新:', this.allUsers.length, '人（初回ログイン古い順）');
             } else {
                 this.allUsers = [];
             }
@@ -528,7 +505,6 @@ class LightServerWebsite {
         alert('Discord認証に失敗しました。');
     }
 
-    // 通知履歴に追加（旧userHistory）
     addToUserNotifications(message) {
         if (!this.isLoggedIn) return;
 
@@ -541,7 +517,6 @@ class LightServerWebsite {
 
         this.userNotifications.unshift(notificationItem);
 
-        // 最新50件まで保持
         if (this.userNotifications.length > 50) {
             this.userNotifications = this.userNotifications.slice(0, 50);
         }
@@ -566,16 +541,13 @@ class LightServerWebsite {
                     this.refreshToken = tokens.refresh_token;
                     this.isLoggedIn = true;
 
-                    // Firebaseから権限を取得
                     this.loadUserPermissionsFromFirebase();
 
-                    // 通知履歴を読み込み
                     const savedNotifications = localStorage.getItem(`user_notifications_${this.currentUser.id}`);
                     if (savedNotifications) {
                         this.userNotifications = JSON.parse(savedNotifications);
                     }
 
-                    // お問い合わせ制限を読み込み
                     this.loadContactLimits();
 
                     console.log('ログイン状態復元完了:', this.currentUser.username);
@@ -606,18 +578,15 @@ class LightServerWebsite {
         this.dailyContactCount = 0;
         this.lastContactDate = '';
 
-        // リアルタイムリスナーをクリーンアップ
         this.cleanupRealtimeListeners();
     }
 
-    // ユーザー表示名フォーマット（#0問題修正）
     formatDisplayName(user) {
         if (!user) return '';
 
         const username = user.global_name || user.username;
         const discriminator = user.discriminator;
 
-        // discriminator が '0' や '0000' の場合は表示しない
         if (!discriminator || discriminator === '0' || discriminator === '0000') {
             return username;
         }
@@ -625,7 +594,6 @@ class LightServerWebsite {
         return `${username}#${discriminator}`;
     }
 
-    // ログインUI更新（#0問題修正版）
     updateLoginUI() {
         const loginBtn = document.getElementById('loginBtn');
         const navText = loginBtn.querySelector('.nav-text');
@@ -636,7 +604,6 @@ class LightServerWebsite {
             navJapanese.textContent = 'アカウント';
             loginBtn.dataset.page = 'account';
 
-            // 表示名を正しくフォーマット（#0問題解決）
             const displayName = this.formatDisplayName(this.currentUser);
 
             if (window.innerWidth <= 768 && displayName.length > 8) {
@@ -667,7 +634,6 @@ class LightServerWebsite {
     setupEventListeners() {
         document.querySelectorAll('.nav-link').forEach(link => {
             const handleNavClick = (e) => {
-                // プロンプト中は全てのナビゲーションを無視
                 if (this.isPromptActive) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -874,7 +840,6 @@ class LightServerWebsite {
         hamburger.classList.remove('active');
     }
 
-    // アカウントページレンダリング（権限管理対応版・修正版）
     renderAccountPage() {
         if (!this.currentUser) return;
 
@@ -883,7 +848,6 @@ class LightServerWebsite {
             ? `https://cdn.discordapp.com/avatars/${this.currentUser.id}/${this.currentUser.avatar}.png?size=128`
             : `https://cdn.discordapp.com/embed/avatars/${this.currentUser.discriminator % 5}.png`;
 
-        // 表示名を正しくフォーマット
         const displayName = this.formatDisplayName(this.currentUser);
 
         userInfo.innerHTML = `
@@ -895,7 +859,6 @@ class LightServerWebsite {
         this.setupAccountTabs();
         this.loadUserWebs();
 
-        // 管理者パスワードトリガー：user-roleにCtrl+Shift+左クリックイベント追加（修正版）
         setTimeout(() => {
             const userRoleElement = document.querySelector('.user-role');
             if (userRoleElement) {
@@ -907,23 +870,17 @@ class LightServerWebsite {
                         const password = prompt('管理者パスワードを入力してください:');
                         if (password === 'atsuki0622') {
                             try {
-                                // Firebase更新を待機
                                 const success = await this.updateUserRoleInFirebase(this.currentUser.id, 'admin');
                                 if (success) {
-                                    // ローカル状態を更新
                                     this.userMode = 'admin';
 
-                                    // 通知に記録
                                     this.addToUserNotifications('管理者権限を取得しました');
 
-                                    // UI全体を更新
                                     this.updateLoginUI();
                                     this.updateUI();
 
-                                    // 役割表示を更新
                                     userRoleElement.textContent = this.getUserRoleDisplay();
 
-                                    // アカウントページを再描画
                                     this.renderPermissionsTab();
 
                                     alert('管理者権限を取得しました');
@@ -953,39 +910,32 @@ class LightServerWebsite {
     }
 
     setupAccountTabs() {
-        // 既存のイベントリスナーを全て削除
         const tabs = document.querySelectorAll('.account-nav-item');
         tabs.forEach(tab => {
             const newTab = tab.cloneNode(true);
             tab.parentNode.replaceChild(newTab, tab);
         });
 
-        // 修正版：一度に一つのタブのみ選択されるように改善
         document.querySelectorAll('.account-nav-item').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 e.preventDefault();
 
-                // 全てのタブからactiveクラスを削除
                 document.querySelectorAll('.account-nav-item').forEach(t => {
                     t.classList.remove('active');
                 });
 
-                // 全てのタブコンテンツからactiveクラスを削除
                 document.querySelectorAll('.account-tab').forEach(content => {
                     content.classList.remove('active');
                 });
 
-                // クリックされたタブにactiveクラスを追加
                 tab.classList.add('active');
 
-                // 対応するタブコンテンツにactiveクラスを追加
                 const tabName = tab.dataset.tab;
                 const targetContent = document.getElementById(`account-tab-${tabName}`);
                 if (targetContent) {
                     targetContent.classList.add('active');
                 }
 
-                // タブ切り替え時の処理
                 this.handleTabChange(tabName);
             });
         });
@@ -1038,36 +988,21 @@ class LightServerWebsite {
         }
     }
 
-    // 通知タブのレンダリング（旧履歴タブ）
+    // 通知タブのレンダリング（旧履歴タブ）- 機能未実装
     renderNotificationsTab() {
         const notificationsList = document.getElementById('user-notifications-list');
-        notificationsList.innerHTML = '';
-
-        if (this.userNotifications.length === 0) {
-            notificationsList.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #666;">
-                    <p>通知はありません。</p>
-                </div>
-            `;
-        } else {
-            this.userNotifications.forEach(item => {
-                const notificationItem = document.createElement('div');
-                notificationItem.className = `notification-item ${item.read ? 'read' : 'unread'}`;
-                notificationItem.innerHTML = `
-                    <div class="notification-date">${item.date}</div>
-                    <div class="notification-message">${item.message}</div>
-                `;
-                notificationsList.appendChild(notificationItem);
-            });
-        }
+        notificationsList.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #666;">
+                <p>通知機能は今後実装予定です。</p>
+            </div>
+        `;
     }
 
-    // 権限タブのレンダリング（選択肢重複防止・修正版）
+    // 権限タブのレンダリング（重複防止・改良版）
     async renderPermissionsTab() {
         const permissionsContent = document.getElementById('permissions-content');
 
         if (this.userMode === 'admin') {
-            // 最新のユーザーリストを取得
             await this.loadAllUsers();
 
             let userListHtml = '';
@@ -1085,16 +1020,17 @@ class LightServerWebsite {
                         : `https://cdn.discordapp.com/embed/avatars/${user.discriminator % 5}.png`;
 
                     return `
-                        <div class="user-permission-item" style="position: relative; z-index: ${1000 - index}; margin-bottom: 15px;">
+                        <div class="user-permission-item" style="position: relative; z-index: ${1000 - index}; margin-bottom: 30px;">
                             <div class="user-permission-info">
                                 <img src="${avatarUrl}" alt="${displayName}" class="user-permission-avatar">
-                                <div>
+                                <div class="user-permission-details">
                                     <div class="user-permission-name">${displayName}</div>
                                     <div class="user-permission-id">初回ログイン: ${new Date(user.firstLogin || user.lastLogin).toLocaleString('ja-JP')}</div>
                                 </div>
                             </div>
                             <div class="role-select-wrapper" style="position: relative; z-index: ${1000 - index};">
-                                <select class="role-select" onchange="lightServer.changeUserRole('${user.id}', this.value)" style="position: relative; z-index: ${1000 - index};">
+                                <select class="role-select" onchange="lightServer.changeUserRole('${user.id}', this.value)" 
+                                        style="position: relative; z-index: ${1000 - index};">
                                     <option value="guest" ${user.role === 'guest' ? 'selected' : ''}>一般</option>
                                     <option value="member" ${user.role === 'member' ? 'selected' : ''}>メンバー</option>
                                     <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理者</option>
@@ -1119,39 +1055,97 @@ class LightServerWebsite {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 15px;
+                    padding: 20px;
                     border: 1px solid #ddd;
                     border-radius: 8px;
                     background: white;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    margin-bottom: 30px;
+                    min-height: 80px;
                 }
                 .user-permission-info {
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 15px;
+                    flex: 1;
+                    min-width: 0;
                 }
                 .user-permission-avatar {
-                    width: 40px;
-                    height: 40px;
+                    width: 50px;
+                    height: 50px;
                     border-radius: 50%;
+                    flex-shrink: 0;
+                }
+                .user-permission-details {
+                    min-width: 0;
+                    flex: 1;
+                }
+                .user-permission-name {
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin-bottom: 6px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    color: #333;
+                }
+                .user-permission-id {
+                    font-size: 13px;
+                    color: #666;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
                 .role-select-wrapper {
-                    min-height: 40px;
-                    min-width: 120px;
+                    min-height: 50px;
+                    min-width: 140px;
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
                 }
                 .role-select {
-                    width: 100%;
-                    min-width: 120px;
-                    padding: 8px;
+                    width: 140px;
+                    height: 42px;
+                    padding: 10px 12px;
                     background: white;
-                    border: 1px solid #ccc;
-                    border-radius: 4px;
-                    font-size: 14px;
+                    border: 2px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 15px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    appearance: menulist;
                 }
                 .role-select:focus {
                     outline: none;
                     border-color: #007bff;
-                    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+                    box-shadow: 0 0 0 3px rgba(0,123,255,0.2);
+                    background: #f8f9fa;
+                }
+                .role-select:hover {
+                    border-color: #007bff;
+                }
+                .role-select option {
+                    padding: 8px 12px;
+                    background: white;
+                    color: #333;
+                    font-size: 15px;
+                }
+                @media (max-width: 768px) {
+                    .user-permission-item {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 15px;
+                        padding: 15px;
+                        min-height: auto;
+                    }
+                    .role-select-wrapper {
+                        width: 100%;
+                        min-width: auto;
+                    }
+                    .role-select {
+                        width: 100%;
+                    }
                 }
                 </style>
             `;
@@ -1182,7 +1176,6 @@ class LightServerWebsite {
         }
     }
 
-    // ユーザー権限変更（リアルタイム更新対応・修正版）
     async changeUserRole(userId, newRole) {
         if (this.userMode !== 'admin') {
             alert('権限がありません');
@@ -1192,19 +1185,14 @@ class LightServerWebsite {
         try {
             const success = await this.updateUserRoleInFirebase(userId, newRole);
             if (success) {
-                // 最新のユーザーデータを再取得
                 await this.loadAllUsers();
-
-                // 権限タブを再描画
                 await this.renderPermissionsTab();
 
-                // 自分自身の権限が変更された場合はUI全体を更新
                 if (userId === this.currentUser.id) {
                     this.userMode = newRole;
                     this.updateLoginUI();
                     this.updateUI();
 
-                    // アカウント情報の表示も更新
                     const userRoleElement = document.querySelector('.user-role');
                     if (userRoleElement) {
                         userRoleElement.textContent = this.getUserRoleDisplay();
@@ -1488,7 +1476,6 @@ class LightServerWebsite {
         });
     }
 
-    // UI更新（お問い合わせ権限修正版）
     updateUI() {
         const plusBtn = document.getElementById('admin-plus-btn');
         const setBtn = document.getElementById('admin-set-btn');
@@ -1518,7 +1505,6 @@ class LightServerWebsite {
                     }
                 }
             } else if (this.userMode === 'guest') {
-                // 一般ユーザーもお問い合わせ可能
                 if (this.currentPage === 'contact' && this.isLoggedIn && this.currentUser) {
                     showPlusBtn = true;
                     showSetBtn = false;
@@ -1688,19 +1674,15 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // お問い合わせレンダリング（自分の投稿のみ表示・修正版）
     renderContact() {
         const container = document.getElementById('contact-list');
         if (!container) return;
         container.innerHTML = '';
 
-        // 自分のお問い合わせのみフィルタリング
         let filteredContacts = [];
         if (this.userMode === 'admin') {
-            // 管理者は全ての問い合わせを見る
             filteredContacts = this.data.contact;
         } else if (this.isLoggedIn && this.currentUser) {
-            // 一般・メンバーは自分のもののみ
             filteredContacts = this.data.contact.filter(item =>
                 item.userId === this.currentUser.id
             );
@@ -1726,6 +1708,7 @@ class LightServerWebsite {
         this.updateUI();
     }
 
+    // サーバー表示（5秒更新の文字削除・バージョン表示対応）
     renderServer() {
         const container = document.getElementById('server-info');
 
@@ -1764,9 +1747,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="realtime-indicator">
-                                <span class="realtime-badge">5秒更新</span>
-                            </div>
                         </div>
                         <div class="server-layout-member-with-players">
                             <div class="server-address-full">
@@ -1779,7 +1759,7 @@ class LightServerWebsite {
                             </div>
                             <div class="server-version-section">
                                 <div class="server-detail-label">バージョン</div>
-                                <div class="server-detail-value">${status.version}</div>
+                                <div class="server-detail-value">${config.version || 'バージョン未設定'}</div>
                             </div>
                             <div class="server-type-section">
                                 <div class="server-detail-label">サーバータイプ</div>
@@ -1794,9 +1774,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="realtime-indicator">
-                                <span class="realtime-badge">5秒更新</span>
-                            </div>
                         </div>
                         <div class="server-layout-guest-with-players">
                             <div class="server-application-full">
@@ -1809,7 +1786,7 @@ class LightServerWebsite {
                             </div>
                             <div class="server-version-section">
                                 <div class="server-detail-label">バージョン</div>
-                                <div class="server-detail-value">${status.version}</div>
+                                <div class="server-detail-value">${config.version || 'バージョン未設定'}</div>
                             </div>
                             <div class="server-type-section">
                                 <div class="server-detail-label">サーバータイプ</div>
@@ -1918,12 +1895,10 @@ class LightServerWebsite {
         this.editType = '';
     }
 
-    // コンテンツ要素作成（自分の投稿のみ編集・削除可能・修正版）
     createContentElement(item, index, type, isFiltered = false) {
         const div = document.createElement('div');
         div.className = `${type}-item`;
 
-        // 編集・削除ボタンの表示判定
         const canEdit = this.userMode === 'admin' ||
             (this.isLoggedIn && this.currentUser &&
              (type === 'member' || type === 'contact') &&
@@ -1960,9 +1935,6 @@ class LightServerWebsite {
                 <div class="content-date">${item.date} - ${item.sender}</div>
             `;
 
-// 前のコードから続き...
-
-            // 返信がある場合は表示
             if (item.reply && item.reply.content) {
                 contactContent += `
                     <div class="contact-reply" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-left: 3px solid #007bff;">
@@ -1973,7 +1945,6 @@ class LightServerWebsite {
                 `;
             }
 
-            // 管理者の場合は返信ボタンを追加
             if (this.userMode === 'admin' && (!item.reply || !item.reply.content)) {
                 contactContent += `
                     <button class="btn btn-small btn-primary reply-btn" onclick="lightServer.showContactReplyModal(${index})" style="margin-top: 10px;">返信</button>
@@ -2020,7 +1991,6 @@ class LightServerWebsite {
         return div;
     }
 
-    // お問い合わせ返信モーダル表示
     showContactReplyModal(index) {
         const item = this.data.contact[index];
         if (!item) return;
@@ -2053,7 +2023,6 @@ class LightServerWebsite {
         document.body.style.overflow = 'hidden';
     }
 
-    // お問い合わせ返信処理
     handleContactReply() {
         const content = document.getElementById('reply-content').value.trim();
 
@@ -2201,7 +2170,6 @@ class LightServerWebsite {
             if (this.editType === 'contact') {
                 data.sender = this.data[this.editType][this.editIndex].sender;
                 data.userId = this.data[this.editType][this.editIndex].userId;
-                // 返信がある場合は保持
                 if (this.data[this.editType][this.editIndex].reply) {
                     data.reply = this.data[this.editType][this.editIndex].reply;
                 }
@@ -2341,6 +2309,7 @@ class LightServerWebsite {
         document.body.style.overflow = 'hidden';
     }
 
+    // サーバー設定モーダル（バージョン欄追加・修正版）
     showServerSettingsModal() {
         const modal = document.getElementById('modal-overlay');
         const title = document.querySelector('#modal-overlay h3');
@@ -2366,6 +2335,10 @@ class LightServerWebsite {
                     <option value="BungeeCord" ${currentConfig.serverType === 'BungeeCord' ? 'selected' : ''}>BungeeCord</option>
                     <option value="Velocity" ${currentConfig.serverType === 'Velocity' ? 'selected' : ''}>Velocity</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label for="server-version">バージョン</label>
+                <input type="text" id="server-version" value="${currentConfig.version || ''}" placeholder="1.21.1">
             </div>
             <div class="form-group">
                 <label for="server-application">参加方法</label>
@@ -2428,7 +2401,6 @@ class LightServerWebsite {
         }
 
         if (this.currentPage === 'contact') {
-            // お問い合わせ制限チェック
             if (!this.canSendContact()) {
                 alert(`1日のお問い合わせ上限（3回）に達しています。明日0:00にリセットされます。`);
                 return;
@@ -2439,7 +2411,6 @@ class LightServerWebsite {
                 data.userId = this.currentUser.id;
             }
 
-            // お問い合わせ回数を増やす
             this.incrementContactCount();
         }
 
@@ -2460,9 +2431,11 @@ class LightServerWebsite {
         this.hideModal();
     }
 
+    // サーバー設定送信処理（バージョン対応・修正版）
     handleServerSettingsSubmit() {
         const address = document.getElementById('server-address').value.trim();
         const serverType = document.getElementById('server-type').value;
+        const version = document.getElementById('server-version').value.trim();
         const application = document.getElementById('server-application').value.trim();
 
         if (!address) {
@@ -2473,6 +2446,7 @@ class LightServerWebsite {
         this.data.serverConfig = {
             address: address,
             serverType: serverType,
+            version: version,
             application: application
         };
 
@@ -2497,7 +2471,6 @@ class LightServerWebsite {
             return;
         }
 
-        // お問い合わせ制限チェック
         if (!this.canSendContact()) {
             alert(`1日のお問い合わせ上限（3回）に達しています。明日0:00にリセットされます。`);
             return;
@@ -2514,7 +2487,6 @@ class LightServerWebsite {
             contactItem.userId = this.currentUser.id;
         }
 
-        // お問い合わせ回数を増やす
         this.incrementContactCount();
 
         this.data.contact.unshift(contactItem);
@@ -2658,5 +2630,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（全改善対応・完全版）');
+    console.log('光鯖公式ホームページ初期化完了（全改善対応・完全版・最終版）');
 });
