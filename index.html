@@ -4,53 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>光鯖公式ホームページ</title>
+    <meta name="description" content="光鯖は作業勢、建築勢、PVP勢など様々なプレイヤーが参加しているマインクラフトサーバーです。">
+    <meta name="keywords" content="光鯖,マインクラフト,サーバー,Minecraft,ゲーム,hikaripage">
+
+    <!-- ファビコン設定 -->
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="shortcut icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="apple-touch-icon-precomposed" href="icon.png">
+
+    <!-- Open Graph（SNS共有用） -->
+    <meta property="og:title" content="光鯖公式ホームページ">
+    <meta property="og:description" content="まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <meta property="og:url" content="https://hikaripage.f5.si">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://hikaripage.f5.si/logo.png">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="光鯖公式ホームページ">
+    <meta name="twitter:description" content="まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <meta name="twitter:image" content="https://hikaripage.f5.si/logo.png">
+
+    <!-- その他のタグ -->
+    <link rel="canonical" href="https://hikaripage.f5.si">
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="icon.png" type="image/png">
-    <meta name="description" content="光鯖公式ホームページ - マインクラフトサーバー">
-    <meta name="keywords" content="光鯖,マインクラフト,サーバー,Minecraft">
+
+    <!-- 構造化データ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "光鯖公式ホームページ",
+      "alternateName": "光鯖",
+      "url": "https://hikaripage.f5.si",
+      "description": "まだ見ぬ世界を魅せるマインクラフトサーバー",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://hikaripage.f5.si/?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "光鯖",
+        "url": "https://hikaripage.f5.si"
+      }
+    }
+    </script>
+
+    <!-- Firebase v9 Modular SDK -->
+    <script type="module" src="script.js"></script>
 </head>
 <body>
-    <!-- ロゴ -->
-    <img id="logo" src="logo.png" alt="光鯖ロゴ">
+    <!-- ロゴ（常時表示） -->
+    <img src="logo.png" id="logo" alt="光鯖公式ロゴ - マインクラフト自鯖サーバー">
 
-    <!-- ナビゲーション -->
+    <!-- ナビゲーションメニュー -->
     <nav id="navbar">
         <div class="nav-container">
+            <!-- ハンバーガーメニューボタン（モバイル用） -->
             <div class="hamburger" id="hamburger">
                 <span></span>
                 <span></span>
                 <span></span>
             </div>
+
+            <!-- ナビゲーションリンク -->
             <div class="nav-links" id="nav-links">
-                <a href="#" class="nav-link" data-page="top">
+                <a href="#top" data-page="top" class="nav-link active">
                     <span class="nav-text">TOP</span>
                     <span class="nav-japanese">トップ</span>
                 </a>
-                <a href="#" class="nav-link" data-page="news">
+                <a href="#news" data-page="news" class="nav-link">
                     <span class="nav-text">NEWS</span>
                     <span class="nav-japanese">お知らせ</span>
                 </a>
-                <a href="#" class="nav-link" data-page="member">
+                <a href="#member" data-page="member" class="nav-link">
                     <span class="nav-text">MEMBER</span>
                     <span class="nav-japanese">メンバー</span>
                 </a>
-                <a href="#" class="nav-link" data-page="schedule">
+                <a href="#schedule" data-page="schedule" class="nav-link">
                     <span class="nav-text">SCHEDULE</span>
                     <span class="nav-japanese">予定</span>
                 </a>
-                <a href="#" class="nav-link" data-page="web">
+                <a href="#web" data-page="web" class="nav-link">
                     <span class="nav-text">WEB</span>
                     <span class="nav-japanese">ウェブ</span>
                 </a>
-                <a href="#" class="nav-link" data-page="roadmap">
+                <a href="#roadmap" data-page="roadmap" class="nav-link">
                     <span class="nav-text">ROADMAP</span>
                     <span class="nav-japanese">ロードマップ</span>
                 </a>
-                <a href="#" class="nav-link" data-page="server">
+                <a href="#contact" data-page="contact" class="nav-link">
+                    <span class="nav-text">CONTACT</span>
+                    <span class="nav-japanese">お問い合わせ</span>
+                </a>
+                <a href="#server" data-page="server" class="nav-link">
                     <span class="nav-text">SERVER</span>
                     <span class="nav-japanese">サーバー</span>
                 </a>
-                <a href="#" class="nav-link" id="loginBtn" data-page="login">
+                <a href="#login" data-page="login" class="nav-link" id="loginBtn">
                     <span class="nav-text">LOGIN</span>
                     <span class="nav-japanese">ログイン</span>
                 </a>
@@ -61,163 +117,133 @@
     <!-- メインコンテンツ -->
     <main id="main-content">
         <!-- TOPページ -->
-        <section id="top-page" class="page active">
+        <div id="top-page" class="page active">
             <div class="top-background">
-                <img src="top.png" alt="光鯖背景" class="background-image">
+                <img src="top.png" alt="光鯖メインビジュアル - まだ見ぬ世界を魅せる" class="background-image">
                 <div class="top-overlay">
                     <h1 class="server-title">光鯖</h1>
-                    <p class="server-subtitle">マインクラフトサーバー</p>
+                    <p class="server-subtitle">まだ見ぬ世界を魅せる</p>
                 </div>
             </div>
-        </section>
+        </div>
 
         <!-- NEWSページ -->
-        <section id="news-page" class="page">
+        <div id="news-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">NEWS</h2>
-                <div class="content-list" id="news-list">
-                    <div class="no-content">
-                        <p>お知らせはまだありません。</p>
-                    </div>
-                </div>
+                <div id="news-list" class="content-list"></div>
             </div>
-        </section>
+        </div>
 
         <!-- MEMBERページ -->
-        <section id="member-page" class="page">
+        <div id="member-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">MEMBER</h2>
-                <div class="member-list" id="member-list">
-                    <div class="no-content">
-                        <p>メンバー情報はまだありません。</p>
-                    </div>
-                </div>
+                <div id="member-list" class="member-list"></div>
             </div>
-        </section>
+        </div>
 
         <!-- SCHEDULEページ -->
-        <section id="schedule-page" class="page">
+        <div id="schedule-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">SCHEDULE</h2>
-                <div class="content-list" id="schedule-list">
-                    <div class="no-content">
-                        <p>予定はまだありません。</p>
-                    </div>
-                </div>
+                <div id="schedule-list" class="content-list"></div>
             </div>
-        </section>
+        </div>
 
         <!-- WEBページ -->
-        <section id="web-page" class="page">
+        <div id="web-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">WEB</h2>
-                <div class="web-grid" id="web-list">
-                    <div class="no-content">
-                        <p>ウェブリンクはまだありません。</p>
-                    </div>
-                </div>
+                <div id="web-list" class="web-grid"></div>
             </div>
-        </section>
+        </div>
 
         <!-- ROADMAPページ -->
-        <section id="roadmap-page" class="page">
+        <div id="roadmap-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">ROADMAP</h2>
-                <div class="roadmap-timeline" id="roadmap-list">
-                    <div class="no-content">
-                        <p>ロードマップはまだありません。</p>
-                    </div>
-                </div>
+                <div id="roadmap-list" class="roadmap-timeline"></div>
             </div>
-        </section>
+        </div>
+
+        <!-- CONTACTページ -->
+        <div id="contact-page" class="page">
+            <div class="page-container">
+                <h2 class="page-title">CONTACT</h2>
+                <div id="contact-list" class="content-list"></div>
+            </div>
+        </div>
 
         <!-- SERVERページ -->
-        <section id="server-page" class="page">
+        <div id="server-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">SERVER</h2>
-                <div class="server-info" id="server-info">
-                    <div class="no-content">
-                        <p>管理者がサーバー設定を行ってください。</p>
-                    </div>
-                </div>
+                <div id="server-info" class="server-info"></div>
             </div>
-        </section>
+        </div>
 
         <!-- ACCOUNTページ -->
-        <section id="account-page" class="page">
+        <div id="account-page" class="page">
             <div class="page-container">
                 <h2 class="page-title">ACCOUNT</h2>
                 <div class="account-container">
-                    <div class="account-sidebar">
+                    <div class="account-sidebar" id="account-sidebar">
                         <div class="account-user-info" id="account-user-info">
-                            <!-- ユーザー情報がここに表示される -->
+                            <!-- ユーザー情報が動的に表示 -->
                         </div>
                         <nav class="account-nav">
-                            <a href="#" class="account-nav-item active" data-tab="web">ウェブ管理</a>
-                            <a href="#" class="account-nav-item" data-tab="notifications">通知</a>
-                            <a href="#" class="account-nav-item admin-only" data-tab="permissions">権限</a>
+                            <a href="#" class="account-nav-item active" data-tab="web">ウェブ</a>
+                            <a href="#" class="account-nav-item" data-tab="history">履歴</a>
+                            <a href="#" class="account-nav-item" data-tab="permissions">権限</a>
                         </nav>
                         <div class="account-actions">
-                            <button class="btn logout-btn" id="logout-btn">ログアウト</button>
+                            <button class="btn btn-cancel logout-btn" id="logout-btn">ログアウト</button>
                         </div>
                     </div>
+
                     <div class="account-content">
-                        <!-- ウェブ管理タブ -->
-                        <div class="account-tab active" id="web-tab">
+                        <!-- ウェブタブ -->
+                        <div id="account-tab-web" class="account-tab active">
                             <h3>ウェブ管理</h3>
                             <div class="account-web-actions">
                                 <button class="btn btn-primary" id="add-user-web-btn">ウェブを追加する</button>
-                                <button class="btn btn-primary" id="export-web-btn">データをエクスポート</button>
                             </div>
-                            <div class="user-web-list" id="user-web-list">
-                                <div class="no-content">
-                                    <p>まだウェブリンクを追加していません。</p>
-                                    <p>「ウェブを追加する」ボタンから追加してください。</p>
-                                </div>
+                            <div id="user-web-list" class="user-web-list">
+                                <!-- ユーザーウェブリスト -->
                             </div>
                         </div>
 
-                        <!-- 通知タブ -->
-                        <div class="account-tab" id="notifications-tab">
-                            <h3>通知</h3>
-                            <div class="user-history" id="user-notifications">
-                                <div class="no-content">
-                                    <p>通知機能は今後実装予定です。</p>
-                                </div>
+                        <!-- 履歴タブ -->
+                        <div id="account-tab-history" class="account-tab">
+                            <h3>履歴</h3>
+                            <div id="user-history" class="user-history">
+                                <!-- ユーザー履歴 -->
                             </div>
                         </div>
 
                         <!-- 権限タブ -->
-                        <div class="account-tab admin-only" id="permissions-tab">
-                            <h3>権限管理</h3>
-                            <div class="permissions-content">
-                                <div class="permission-role">管理者</div>
-                                <div class="permission-description">
-                                    全ての機能にアクセスでき、ユーザーの権限を管理できます。<br>
-                                    コンテンツの追加・編集・削除が可能です。
-                                </div>
-                                <div class="users-list" id="all-users-list">
-                                    <div class="no-content">
-                                        <p>ログインしたユーザーはいません。</p>
-                                    </div>
-                                </div>
+                        <div id="account-tab-permissions" class="account-tab">
+                            <h3>権限</h3>
+                            <div id="permissions-content" class="permissions-content">
+                                <!-- 権限管理 -->
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
 
         <!-- LOGINページ -->
-        <section id="login-page" class="page">
+        <div id="login-page" class="page">
             <div class="page-container">
+                <h2 class="page-title">LOGIN</h2>
                 <div class="login-container">
                     <div class="login-card">
                         <h3>Discordでログイン</h3>
                         <p>光鯖公式サイトにアクセスするには、Discordでログインしてください。</p>
-                        <button class="discord-login-btn" id="discord-login-btn">
-                            <img src="discord.png" alt="Discord" width="24" height="24">
-                            Discordでログイン
+                        <button class="btn btn-primary discord-login-btn" id="discord-login-btn">
+                            <span>🎮</span> Discordでログイン
                         </button>
                         <div class="login-note">
                             <p>※ 管理者の方は、Ctrl+Shift+ログインで管理者権限を取得できます。</p>
@@ -225,39 +251,34 @@
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
     </main>
 
-    <!-- +ボタン（管理者用） -->
-    <button id="admin-plus-btn" class="plus-btn admin-only" style="display: none;">
+    <!-- 管理者用addボタン（文字版） -->
+    <div id="admin-plus-btn" class="plus-btn" style="display: none;">
         <div class="plus-icon">+</div>
-    </button>
+    </div>
 
-    <!-- 設定ボタン（管理者用） -->
-    <button id="admin-set-btn" class="set-btn admin-only" style="display: none;">
-        <div class="set-icon">⚙️</div>
-    </button>
+    <!-- 管理者用setボタン（絵文字版） -->
+    <div id="admin-set-btn" class="set-btn" style="display: none;">
+        <div class="set-icon">⚙</div>
+    </div>
 
-    <!-- モーダル -->
+    <!-- モーダルダイアログ -->
     <div id="modal-overlay" class="modal-overlay">
-        <div class="modal-content">
+        <div id="modal-content" class="modal-content">
             <div class="modal-header">
-                <h3 id="modal-title">項目を追加</h3>
-                <button id="modal-close" class="modal-close">×</button>
+                <h3 id="modal-title">タイトル</h3>
+                <button id="modal-close" class="modal-close">&times;</button>
             </div>
-            <div class="modal-body" id="modal-body">
-                <!-- モーダルの内容がここに動的に生成される -->
-            </div>
+            <div id="modal-body" class="modal-body"></div>
             <div class="modal-footer">
                 <button id="modal-cancel" class="btn btn-cancel">キャンセル</button>
-                <button id="modal-submit" class="btn btn-submit">送信</button>
+                <button id="modal-submit" class="btn btn-submit">保存</button>
             </div>
         </div>
     </div>
 
-    <!-- 隠しファイル入力 -->
-    <input type="file" id="hidden-file-input" style="display: none;" accept="image/*">
-
-    <script src="script.js"></script>
+    <input type="file" id="hidden-file-input" accept="image/*" style="display: none;">
 </body>
 </html>
