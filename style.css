@@ -209,55 +209,48 @@ body {
 }
 
 .content-item .content-date {
-    color: #666;
+    color: #7f8c8d;
     font-size: 0.9rem;
 }
 
-/* 編集・削除ボタン（修正版） */
-.edit-btn, .delete-btn {
+/* 編集・削除ボタン */
+.edit-btn {
     position: absolute;
     top: 15px;
+    right: 50px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 50%;
     width: 30px;
     height: 30px;
-    border: 2px solid #ddd;
-    border-radius: 50%;
-    background: white;
-    color: #666;
-    font-size: 14px;
     cursor: pointer;
-    display: flex;
+    display: none;
+    font-size: 14px;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-    z-index: 10;
-    padding: 0;
-    margin: 0;
-}
-
-.edit-btn {
-    right: 50px;
-    font-size: 12px;
 }
 
 .edit-btn:hover {
-    background: #3498db;
-    color: white;
-    border-color: #3498db;
-    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+    background: #2980b9;
 }
 
 .delete-btn {
+    position: absolute;
+    top: 15px;
     right: 15px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.delete-btn:hover {
     background: #e74c3c;
     color: white;
-    border-color: #e74c3c;
-    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: none;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* メンバーリスト（1列固定） */
@@ -352,71 +345,55 @@ body {
     color: white;
 }
 
-/* ロードマップタイムライン（修正版：縦線移動・ホバー連動・🔵使用） */
+/* ロードマップタイムライン */
 .roadmap-timeline {
     position: relative;
-    margin-left: 50px;
-    padding-left: 70px;
-    border-left: 3px solid #007BFF;
-    transition: all 0.3s ease;
+    padding-left: 30px;
 }
 
-.roadmap-timeline:hover {
-    transform: translateX(8px);
-}
-
-.roadmap-timeline .roadmap-item {
-    position: relative;
-    padding: 30px 40px !important;
-    margin-bottom: 80px !important;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-}
-
-.roadmap-timeline .roadmap-item:hover {
-    transform: translateX(8px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-}
-
-.roadmap-timeline .roadmap-item:last-child {
-    margin-bottom: 40px !important;
-}
-
-.roadmap-timeline .roadmap-item::before {
-    content: "🔵";
+.roadmap-timeline::before {
+    content: '';
     position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #3498db;
+}
+
+.roadmap-item {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.roadmap-item::before {
+    content: '';
+    position: absolute;
+    left: -37px;
     top: 30px;
-    left: -83px;
-    font-size: 18px;
-    z-index: 2;
-    transition: all 0.3s ease;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #3498db;
 }
 
-.roadmap-timeline .roadmap-item:hover::before {
-    left: -75px;
+.roadmap-date {
+    color: #3498db;
+    font-weight: bold;
+    margin-bottom: 10px;
 }
 
-.roadmap-timeline .roadmap-item h3 {
-    margin-top: 0;
+.roadmap-item h3 {
+    color: #2c3e50;
     margin-bottom: 15px;
-    color: #333;
-    font-weight: bold;
-    font-size: 1.4rem;
 }
 
-.roadmap-timeline .roadmap-item .content-date {
-    color: #666 !important;
-    font-weight: bold;
-    margin-bottom: 12px;
-    font-size: 0.95rem;
-}
-
-.roadmap-timeline .roadmap-item .content-body {
+.roadmap-content {
     color: #555;
-    line-height: 1.6;
-    font-size: 1rem;
 }
 
 /* サーバー情報表示 */
@@ -1437,24 +1414,6 @@ body.prompt-active * {
     .account-sidebar {
         min-width: auto;
     }
-
-    .roadmap-timeline {
-        margin-left: 35px;
-        padding-left: 50px;
-    }
-
-    .roadmap-timeline .roadmap-item {
-        margin-bottom: 60px;
-        padding: 25px 30px;
-    }
-
-    .roadmap-timeline .roadmap-item::before {
-        left: -63px;
-    }
-
-    .roadmap-timeline .roadmap-item:hover::before {
-        left: -55px;
-    }
 }
 
 /* レスポンシブ（モバイル） */
@@ -1634,25 +1593,6 @@ body.prompt-active * {
         width: 60px;
         height: 60px;
     }
-
-    .roadmap-timeline {
-        margin-left: 30px;
-        padding-left: 45px;
-    }
-
-    .roadmap-timeline .roadmap-item {
-        margin-bottom: 50px;
-        padding: 20px 25px;
-    }
-
-    .roadmap-timeline .roadmap-item::before {
-        left: -58px;
-        font-size: 16px;
-    }
-
-    .roadmap-timeline .roadmap-item:hover::before {
-        left: -50px;
-    }
 }
 
 /* 小さなモバイル */
@@ -1715,24 +1655,5 @@ body.prompt-active * {
     .user-avatar {
         width: 50px;
         height: 50px;
-    }
-
-    .roadmap-timeline {
-        margin-left: 25px;
-        padding-left: 40px;
-    }
-
-    .roadmap-timeline .roadmap-item {
-        margin-bottom: 45px;
-        padding: 18px 20px;
-    }
-
-    .roadmap-timeline .roadmap-item::before {
-        left: -53px;
-        font-size: 14px;
-    }
-
-    .roadmap-timeline .roadmap-item:hover::before {
-        left: -45px;
     }
 }
