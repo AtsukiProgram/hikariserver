@@ -13,7 +13,7 @@ const firebaseConfig = {
     appId: "1:513214205524:web:11369148fb6429fe1567c1"
 };
 
-// Discord OAuth2設定（実際の認証情報）
+// Discord OAuth2設定
 const DISCORD_CONFIG = {
     CLIENT_ID: "1408428315974434906",
     CLIENT_SECRET: "aEhzDpiEnA0sjsnXG7FbX-KZu8176TsK",
@@ -91,7 +91,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（全問題修正版）');
+        console.log('光鯖公式ホームページ初期化完了');
     }
 
     getDiscordAuthURL() {
@@ -1304,7 +1304,7 @@ class LightServerWebsite {
         this.updateUI();
     }
 
-    // ロードマップのレンダリング（全要素完全静的・一切動かない版）【最終版】
+    // ロードマップのレンダリング（完全静的版・一切動かない）
     renderRoadmap() {
         const container = document.getElementById('roadmap-list');
         container.innerHTML = '';
@@ -1323,19 +1323,18 @@ class LightServerWebsite {
             }
         });
 
-        // タイムラインCSS追加（全要素完全静的版）
-        if (!document.getElementById('roadmap-styles-completely-static')) {
+        // タイムラインCSS追加（完全静的版）
+        if (!document.getElementById('roadmap-styles-static-final')) {
             const styleElement = document.createElement('div');
-            styleElement.id = 'roadmap-styles-completely-static';
+            styleElement.id = 'roadmap-styles-static-final';
             styleElement.innerHTML = `
                 <style>
-                /* 全ての要素のポインターイベントを無効化 */
+                /* 全ての要素を完全に静的化 */
                 .roadmap-timeline, .roadmap-timeline * {
                     pointer-events: none !important;
                     user-select: none !important;
                 }
                 
-                /* カーソルを通常表示に固定 */
                 .roadmap-timeline {
                     cursor: default !important;
                     position: relative;
@@ -1344,7 +1343,7 @@ class LightServerWebsite {
                     border-left: 3px solid #007BFF;
                 }
                 
-                /* 全ての動的効果を完全に無効化 */
+                /* 全ての動的効果を無効化 */
                 .roadmap-timeline, 
                 .roadmap-timeline .roadmap-item, 
                 .roadmap-timeline .roadmap-item::before {
@@ -1362,7 +1361,6 @@ class LightServerWebsite {
                     border-radius: 12px;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
                     cursor: default !important;
-                    pointer-events: none !important;
                 }
                 
                 .roadmap-timeline .roadmap-item:last-child {
@@ -1380,7 +1378,6 @@ class LightServerWebsite {
                     border-radius: 50%;
                     z-index: 2;
                     box-shadow: 0 0 6px rgba(0, 123, 255, 0.3) !important;
-                    pointer-events: none !important;
                     cursor: default !important;
                 }
                 
@@ -1390,7 +1387,6 @@ class LightServerWebsite {
                     color: #333;
                     font-weight: bold;
                     font-size: 1.4rem;
-                    pointer-events: none !important;
                 }
                 
                 .roadmap-timeline .roadmap-item .content-date {
@@ -1398,14 +1394,12 @@ class LightServerWebsite {
                     font-weight: bold;
                     margin-bottom: 12px;
                     font-size: 0.95rem;
-                    pointer-events: none !important;
                 }
                 
                 .roadmap-timeline .roadmap-item .content-body {
                     color: #555;
                     line-height: 1.6;
                     font-size: 1rem;
-                    pointer-events: none !important;
                 }
                 
                 .roadmap-timeline .roadmap-item .edit-btn,
@@ -1417,14 +1411,14 @@ class LightServerWebsite {
                     border: none;
                     cursor: pointer;
                     z-index: 3;
-                    pointer-events: auto !important; /* 管理者ボタンのみ有効 */
+                    pointer-events: auto !important;
                 }
                 
                 .roadmap-timeline .roadmap-item .delete-btn {
                     right: 40px;
                 }
                 
-                /* ホバー効果を完全に無効化 */
+                /* ホバー効果完全無効化 */
                 .roadmap-timeline:hover,
                 .roadmap-timeline:hover .roadmap-item,
                 .roadmap-timeline:hover .roadmap-item::before {
@@ -2436,7 +2430,7 @@ class LightServerWebsite {
                     184: '1.9.4', 183: '1.9.3', 176: '1.9.2', 175: '1.9.1', 169: '1.9',
                     47: '1.8.9'
                 };
-
+                
                 const protocolVersion = data.protocol.version;
                 if (exactVersionMap[protocolVersion]) {
                     return `v${exactVersionMap[protocolVersion]}`;
@@ -2475,5 +2469,5 @@ let lightServer;
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（ロードマップ全要素完全静的・一切動かない・最終完全版）');
+    console.log('光鯖公式ホームページ初期化完了（ロードマップのみ完全静的化版）');
 });
