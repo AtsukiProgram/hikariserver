@@ -1,6 +1,6 @@
 // Firebase v9 Modular SDK インポート
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, get, child, onValue, off } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // Firebase設定
 const firebaseConfig = {
@@ -37,9 +37,13 @@ class LightServerWebsite {
         this.accessToken = null;
         this.refreshToken = null;
         this.userWebs = [];
-        this.userHistory = [];
+        this.userNotifications = [];
         this.adminOverride = false;
         this.isPromptActive = false;
+        this.allUsers = [];
+        this.dailyContactCount = 0;
+        this.lastContactDate = '';
+        this.realtimeListeners = {};
 
         this.data = {
             news: [],
@@ -48,7 +52,7 @@ class LightServerWebsite {
             web: [],
             roadmap: [],
             contact: [],
-            users: [],
+            users: {},
             serverConfig: null
         };
 
@@ -61,7 +65,6 @@ class LightServerWebsite {
         this.updateFailureCount = 0;
         this.maxFailures = 3;
         this.selectedImageData = null;
-
         this.serverStatusHistory = [];
         this.stableUpdateInterval = 15000;
         this.initialUpdateInterval = 500;
@@ -83,7 +86,9 @@ class LightServerWebsite {
         this.setupEventListeners();
 
         await this.loadData();
+        this.setupRealtimeUpdates();
         this.cleanExpiredSchedules();
+        this.loadContactLimits();
 
         setTimeout(() => {
             this.updateUI();
@@ -91,7 +96,145 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了');
+        console.log('光鯖公式ホームページ初期化完了（全改善対応版）');
+    }
+
+    setupRealtimeUpdates() {
+        const webRef = ref(database, 'web');
+        this.realtimeListeners.web = onValue(webRef, (snapshot) => {
+            if (snapshot.exists()) {
+                this.data.web = snapshot.val() || [];
+                if (this.currentPage === 'web') {
+                    this.renderWeb();
+                }
+                console.log('ウェブデータをリアルタイム更新');
+            }
+        });
+
+        const memberRef = ref(database, 'member');
+        this.realtimeListeners.member = onValue(memberRef, (snapshot) => {
+            if (snapshot.exists()) {
+                this.data.member = snapshot.val() || [];
+                if (this.currentPage === 'member') {
+                    this.renderMembers();
+                }
+                console.log('メンバーデータをリアルタイム更新');
+            }
+        });
+
+        const contactRef = ref(database, 'contact');
+        this.realtimeListeners.contact = onValue(contactRef, (snapshot) => {
+            if (snapshot.exists()) {
+                this.data.contact = snapshot.val() || [];
+                if (this.currentPage === 'contact') {
+                    this.renderContact();
+                }
+                console.log('お問い合わせデータをリアルタイム更新');
+            }
+        });
+
+        const newsRef = ref(database, 'news');
+        this.realtimeListeners.news = onValue(newsRef, (snapshot) => {
+            if (snapshot.exists()) {
+                this.data.news = snapshot.val() || [];
+                if (this.currentPage === 'news') {
+                    this.renderNews();
+                }
+                console.log('ニュースデータをリアルタイム更新');
+            }
+        });
+
+        const scheduleRef = ref(database, 'schedule');
+        this.realtimeListeners.schedule = onValue(scheduleRef, (snapshot) => {
+            if (snapshot.exists()) {
+                this.data.schedule = snapshot.val() || [];
+                if (this.currentPage === 'schedule') {
+                    this.renderSchedule();
+                }
+                console.log('スケジュールデータをリアルタイム更新');
+            }
+        });
+
+        const roadmapRef = ref(database, 'roadmap');
+        this.realtimeListeners.roadmap = onValue(roadmapRef, (snapshot) => {
+            if (snapshot.exists()) {
+                this.data.roadmap = snapshot.val() || [];
+                if (this.currentPage === 'roadmap') {
+                    this.renderRoadmap();
+                }
+                console.log('ロードマップデータをリアルタイム更新');
+            }
+        });
+    }
+
+    cleanupRealtimeListeners() {
+        Object.keys(this.realtimeListeners).forEach(key => {
+            if (this.realtimeListeners[key]) {
+                off(this.realtimeListeners[key]);
+            }
+        });
+        this.realtimeListeners = {};
+    }
+
+    loadContactLimits() {
+        if (!this.isLoggedIn || !this.currentUser) return;
+
+        const savedData = localStorage.getItem(`contact_limits_${this.currentUser.id}`);
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                const today = new Date().toDateString();
+
+                if (data.date === today) {
+                    this.dailyContactCount = data.count;
+                    this.lastContactDate = data.date;
+                } else {
+                    this.dailyContactCount = 0;
+                    this.lastContactDate = today;
+                    this.saveContactLimits();
+                }
+            } catch (error) {
+                console.error('お問い合わせ制限データ読み込みエラー:', error);
+                this.resetContactLimits();
+            }
+        } else {
+            this.resetContactLimits();
+        }
+    }
+
+    saveContactLimits() {
+        if (!this.isLoggedIn || !this.currentUser) return;
+
+        const data = {
+            count: this.dailyContactCount,
+            date: this.lastContactDate
+        };
+        localStorage.setItem(`contact_limits_${this.currentUser.id}`, JSON.stringify(data));
+    }
+
+    resetContactLimits() {
+        this.dailyContactCount = 0;
+        this.lastContactDate = new Date().toDateString();
+        this.saveContactLimits();
+    }
+
+    canSendContact() {
+        const today = new Date().toDateString();
+        if (this.lastContactDate !== today) {
+            this.resetContactLimits();
+            return true;
+        }
+        return this.dailyContactCount < 3;
+    }
+
+    incrementContactCount() {
+        const today = new Date().toDateString();
+        if (this.lastContactDate !== today) {
+            this.resetContactLimits();
+        }
+        this.dailyContactCount++;
+        this.lastContactDate = today;
+        this.saveContactLimits();
     }
 
     getDiscordAuthURL() {
@@ -219,7 +362,7 @@ class LightServerWebsite {
         }
     }
 
-    handleSuccessfulLogin(userData) {
+    async handleSuccessfulLogin(userData) {
         this.isLoggedIn = true;
         this.currentUser = {
             id: userData.id,
@@ -233,51 +376,158 @@ class LightServerWebsite {
         localStorage.setItem('discord_user', JSON.stringify(this.currentUser));
         localStorage.setItem('login_timestamp', Date.now().toString());
 
-        this.checkUserPermissions();
+        await this.saveUserToFirebase();
+        await this.loadUserPermissionsFromFirebase();
+
+        this.loadContactLimits();
+
         this.updateLoginUI();
-        this.addToUserHistory('Discord認証でログインしました');
+        this.addToUserNotifications('Discord認証でログインしました');
         this.showPage('account');
 
-        console.log('ログイン完了:', this.currentUser.username);
+        console.log('ログイン完了:', this.currentUser.username, 'Role:', this.userMode);
+    }
+
+    async saveUserToFirebase() {
+        if (!this.currentUser) return;
+
+        try {
+            const userId = this.currentUser.id;
+            const userRef = ref(database, `users/${userId}`);
+            const userSnapshot = await get(userRef);
+
+            const userData = {
+                id: this.currentUser.id,
+                username: this.currentUser.username,
+                discriminator: this.currentUser.discriminator,
+                avatar: this.currentUser.avatar,
+                email: this.currentUser.email,
+                global_name: this.currentUser.global_name,
+                lastLogin: new Date().toISOString(),
+                lastUpdated: new Date().toISOString(), // 最終更新日を追加
+                loginCount: userSnapshot.exists() ? (userSnapshot.val().loginCount || 0) + 1 : 1
+            };
+
+            if (!userSnapshot.exists()) {
+                userData.role = 'guest';
+                userData.firstLogin = new Date().toISOString();
+            } else {
+                userData.role = userSnapshot.val().role || 'guest';
+                userData.firstLogin = userSnapshot.val().firstLogin || new Date().toISOString();
+            }
+
+            await set(userRef, userData);
+            console.log('ユーザー情報をFirebaseに保存:', userData.username);
+
+        } catch (error) {
+            console.error('ユーザー情報保存エラー:', error);
+        }
+    }
+
+    async loadUserPermissionsFromFirebase() {
+        if (!this.currentUser) return;
+
+        try {
+            const userId = this.currentUser.id;
+            const userRef = ref(database, `users/${userId}`);
+            const snapshot = await get(userRef);
+
+            if (snapshot.exists()) {
+                const userData = snapshot.val();
+                this.userMode = userData.role || 'guest';
+                console.log('Firebase権限取得:', this.userMode);
+            } else {
+                this.userMode = 'guest';
+                console.log('新規ユーザー、権限をguestに設定');
+            }
+
+            setTimeout(() => {
+                this.updateUI();
+            }, 100);
+
+        } catch (error) {
+            console.error('権限取得エラー:', error);
+            this.userMode = 'guest';
+        }
+    }
+
+    async updateUserRoleInFirebase(userId, newRole) {
+        try {
+            const userRef = ref(database, `users/${userId}`);
+            const snapshot = await get(userRef);
+
+            if (snapshot.exists()) {
+                const userData = snapshot.val();
+                userData.role = newRole;
+                userData.roleUpdated = new Date().toISOString();
+                userData.lastUpdated = new Date().toISOString(); // 最終更新日を更新
+
+                await set(userRef, userData);
+                console.log(`ユーザー ${userData.username} の権限を ${newRole} に更新`);
+
+                if (userId === this.currentUser.id) {
+                    this.userMode = newRole;
+                }
+
+                return true;
+            } else {
+                console.error('ユーザーデータが存在しません');
+                return false;
+            }
+        } catch (error) {
+            console.error('権限更新エラー:', error);
+            return false;
+        }
+    }
+
+    // 全ユーザーリストを取得（最終更新新しい順・修正版）
+    async loadAllUsers() {
+        try {
+            const usersRef = ref(database, 'users');
+            const snapshot = await get(usersRef);
+
+            if (snapshot.exists()) {
+                const users = snapshot.val();
+                // 最終更新時間の新しい順にソート（降順）
+                this.allUsers = Object.values(users).sort((a, b) =>
+                    new Date(b.lastUpdated || b.lastLogin || 0) - new Date(a.lastUpdated || a.lastLogin || 0)
+                );
+                console.log('全ユーザーリスト更新:', this.allUsers.length, '人（最終更新新しい順）');
+            } else {
+                this.allUsers = [];
+            }
+        } catch (error) {
+            console.error('ユーザーリスト取得エラー:', error);
+            this.allUsers = [];
+        }
     }
 
     showFallbackAuth() {
         alert('Discord認証に失敗しました。');
     }
 
-    checkUserPermissions() {
-        if (!this.currentUser) {
-            this.userMode = 'guest';
-            return;
+    addToUserNotifications(message) {
+        if (!this.isLoggedIn) return;
+
+        const notificationItem = {
+            date: new Date().toLocaleString('ja-JP'),
+            message: message,
+            userId: this.currentUser.id,
+            read: false
+        };
+
+        this.userNotifications.unshift(notificationItem);
+
+        if (this.userNotifications.length > 50) {
+            this.userNotifications = this.userNotifications.slice(0, 50);
         }
 
-        const adminIds = [
-            'YOUR_ADMIN_DISCORD_ID_1',
-            'YOUR_ADMIN_DISCORD_ID_2'
-        ];
-
-        if (adminIds.includes(this.currentUser.id)) {
-            this.userMode = 'admin';
-            console.log('管理者として認証されました');
-        } else {
-            this.userMode = 'member';
-            console.log('メンバーとして認証されました');
-        }
-
-        if (localStorage.getItem('admin_override') === 'true') {
-            this.userMode = 'admin';
-            this.adminOverride = true;
-        }
-
-        setTimeout(() => {
-            this.updateUI();
-        }, 100);
+        localStorage.setItem(`user_notifications_${this.currentUser.id}`, JSON.stringify(this.userNotifications));
     }
 
     loadLoginState() {
         const savedUser = localStorage.getItem('discord_user');
         const savedTokens = localStorage.getItem('discord_tokens');
-        const adminOverride = localStorage.getItem('admin_override');
 
         if (savedUser && savedTokens) {
             try {
@@ -292,11 +542,14 @@ class LightServerWebsite {
                     this.refreshToken = tokens.refresh_token;
                     this.isLoggedIn = true;
 
-                    this.checkUserPermissions();
+                    this.loadUserPermissionsFromFirebase();
 
-                    if (adminOverride === 'true') {
-                        this.adminOverride = true;
+                    const savedNotifications = localStorage.getItem(`user_notifications_${this.currentUser.id}`);
+                    if (savedNotifications) {
+                        this.userNotifications = JSON.parse(savedNotifications);
                     }
+
+                    this.loadContactLimits();
 
                     console.log('ログイン状態復元完了:', this.currentUser.username);
                 } else {
@@ -314,7 +567,6 @@ class LightServerWebsite {
         localStorage.removeItem('discord_user');
         localStorage.removeItem('discord_tokens');
         localStorage.removeItem('login_timestamp');
-        localStorage.removeItem('admin_override');
         localStorage.removeItem('discord_oauth_state');
 
         this.isLoggedIn = false;
@@ -323,6 +575,11 @@ class LightServerWebsite {
         this.refreshToken = null;
         this.userMode = 'guest';
         this.adminOverride = false;
+        this.userNotifications = [];
+        this.dailyContactCount = 0;
+        this.lastContactDate = '';
+
+        this.cleanupRealtimeListeners();
     }
 
     formatDisplayName(user) {
@@ -366,72 +623,13 @@ class LightServerWebsite {
 
     logout() {
         if (confirm('ログアウトしますか？')) {
-            this.addToUserHistory('ログアウトしました');
+            this.addToUserNotifications('ログアウトしました');
             this.clearLoginState();
             this.updateLoginUI();
             this.showPage('top');
 
             console.log('ログアウト完了');
         }
-    }
-
-    setupAdminPasswordTrigger() {
-        const loginBtn = document.getElementById('loginBtn');
-
-        loginBtn.addEventListener('click', (e) => {
-            if (e.ctrlKey && e.shiftKey) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                if (this.isPromptActive) {
-                    return false;
-                }
-
-                this.isPromptActive = true;
-                document.body.classList.add('prompt-active');
-
-                const originalShowPage = this.showPage.bind(this);
-                const originalGetDiscordAuthURL = this.getDiscordAuthURL.bind(this);
-
-                this.showPage = () => {
-                    console.log('Page transition blocked during admin authentication');
-                };
-                this.getDiscordAuthURL = () => {
-                    console.log('Discord auth blocked during admin authentication');
-                    return '#';
-                };
-
-                setTimeout(() => {
-                    const password = prompt('管理者パスワードを入力してください:');
-
-                    this.showPage = originalShowPage;
-                    this.getDiscordAuthURL = originalGetDiscordAuthURL;
-                    this.isPromptActive = false;
-                    document.body.classList.remove('prompt-active');
-
-                    if (password === 'atsuki0622') {
-                        this.userMode = 'admin';
-                        this.adminOverride = true;
-                        localStorage.setItem('admin_override', 'true');
-
-                        this.addToUserHistory('管理者権限を取得しました');
-                        this.updateLoginUI();
-                        this.updateUI();
-
-                        if (this.currentPage === 'account') {
-                            this.renderAccountPage();
-                        }
-
-                        alert('管理者権限を取得しました');
-                    } else if (password) {
-                        alert('パスワードが間違っています');
-                    }
-                }, 50);
-
-                return false;
-            }
-        }, true);
     }
 
     setupEventListeners() {
@@ -518,6 +716,8 @@ class LightServerWebsite {
                 this.handleAddUserWeb();
             } else if (this.modalType === 'edit-user-web') {
                 this.handleEditUserWeb();
+            } else if (this.modalType === 'reply-contact') {
+                this.handleContactReply();
             } else {
                 this.handleModalSubmit();
             }
@@ -540,9 +740,21 @@ class LightServerWebsite {
                     this.logout();
                 });
             }
-        }, 1000);
 
-        this.setupAdminPasswordTrigger();
+            const addUserWebBtn = document.getElementById('add-user-web-btn');
+            if (addUserWebBtn) {
+                addUserWebBtn.addEventListener('click', () => {
+                    this.showAddUserWebModal();
+                });
+            }
+
+            const exportWebBtn = document.getElementById('export-web-btn');
+            if (exportWebBtn) {
+                exportWebBtn.addEventListener('click', () => {
+                    this.exportData('web');
+                });
+            }
+        }, 1000);
 
         window.addEventListener('focus', () => {
             if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server' && !this.isApiDisabled) {
@@ -559,6 +771,7 @@ class LightServerWebsite {
 
         window.addEventListener('beforeunload', () => {
             this.stopServerStatusUpdates();
+            this.cleanupRealtimeListeners();
         });
 
         window.addEventListener('resize', () => {
@@ -645,77 +858,97 @@ class LightServerWebsite {
         `;
 
         this.setupAccountTabs();
-        this.showAccountTab('web');
+        this.loadUserWebs();
+
+        setTimeout(() => {
+            const userRoleElement = document.querySelector('.user-role');
+            if (userRoleElement) {
+                userRoleElement.addEventListener('click', async (e) => {
+                    if (e.ctrlKey && e.shiftKey) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const password = prompt('管理者パスワードを入力してください:');
+                        if (password === 'atsuki0622') {
+                            try {
+                                const success = await this.updateUserRoleInFirebase(this.currentUser.id, 'admin');
+                                if (success) {
+                                    this.userMode = 'admin';
+
+                                    this.addToUserNotifications('管理者権限を取得しました');
+
+                                    this.updateLoginUI();
+                                    this.updateUI();
+
+                                    userRoleElement.textContent = this.getUserRoleDisplay();
+
+                                    this.renderPermissionsTab();
+
+                                    alert('管理者権限を取得しました');
+                                } else {
+                                    alert('権限の更新に失敗しました');
+                                }
+                            } catch (error) {
+                                console.error('権限更新エラー:', error);
+                                alert('権限の更新に失敗しました');
+                            }
+                        } else if (password) {
+                            alert('パスワードが間違っています');
+                        }
+                    }
+                });
+            }
+        }, 100);
     }
 
     getUserRoleDisplay() {
-        if (this.adminOverride) {
-            return '管理者（特別認証）';
-        }
-
         switch (this.userMode) {
             case 'admin': return '管理者';
             case 'member': return 'メンバー';
-            default: return '一般ユーザー';
+            case 'guest': return '一般';
+            default: return '一般';
         }
     }
 
     setupAccountTabs() {
-        const tabButtons = document.querySelectorAll('.account-nav-item');
-
-        tabButtons.forEach(button => {
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
+        const tabs = document.querySelectorAll('.account-nav-item');
+        tabs.forEach(tab => {
+            const newTab = tab.cloneNode(true);
+            tab.parentNode.replaceChild(newTab, tab);
         });
 
-        const newTabButtons = document.querySelectorAll('.account-nav-item');
-        newTabButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
+        document.querySelectorAll('.account-nav-item').forEach(tab => {
+            tab.addEventListener('click', (e) => {
                 e.preventDefault();
-                e.stopPropagation();
 
-                document.querySelectorAll('.account-nav-item').forEach(btn => {
-                    btn.classList.remove('active');
+                document.querySelectorAll('.account-nav-item').forEach(t => {
+                    t.classList.remove('active');
                 });
 
-                button.classList.add('active');
+                document.querySelectorAll('.account-tab').forEach(content => {
+                    content.classList.remove('active');
+                });
 
-                const tab = button.dataset.tab;
-                this.showAccountTab(tab);
-            });
+                tab.classList.add('active');
 
-            button.addEventListener('mouseenter', () => {
-                if (!button.classList.contains('active')) {
-                    button.style.backgroundColor = '#3498db';
-                    button.style.color = 'white';
+                const tabName = tab.dataset.tab;
+                const targetContent = document.getElementById(`account-tab-${tabName}`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
                 }
-            });
 
-            button.addEventListener('mouseleave', () => {
-                if (!button.classList.contains('active')) {
-                    button.style.backgroundColor = '';
-                    button.style.color = '';
-                }
+                this.handleTabChange(tabName);
             });
         });
     }
 
-    showAccountTab(tabName) {
-        document.querySelectorAll('.account-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-
-        const targetTab = document.getElementById(`account-tab-${tabName}`);
-        if (targetTab) {
-            targetTab.classList.add('active');
-        }
-
+    handleTabChange(tabName) {
         switch (tabName) {
             case 'web':
                 this.renderWebTab();
                 break;
-            case 'history':
-                this.renderHistoryTab();
+            case 'notifications':  // 履歴 → 通知に変更
+                this.renderNotificationsTab();
                 break;
             case 'permissions':
                 this.renderPermissionsTab();
@@ -725,12 +958,6 @@ class LightServerWebsite {
 
     renderWebTab() {
         const webList = document.getElementById('user-web-list');
-        const addBtn = document.getElementById('add-user-web-btn');
-
-        if (addBtn) {
-            addBtn.onclick = () => this.showAddUserWebModal();
-        }
-
         webList.innerHTML = '';
 
         if (this.userWebs.length === 0) {
@@ -762,145 +989,256 @@ class LightServerWebsite {
         }
     }
 
-    renderHistoryTab() {
-        const historyContainer = document.getElementById('user-history');
-        historyContainer.innerHTML = '';
-
-        if (this.userHistory.length === 0) {
-            historyContainer.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #666;">
-                    <p>履歴はありません。</p>
-                </div>
-            `;
-        } else {
-            this.userHistory.slice(0, 20).forEach(item => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                historyItem.innerHTML = `
-                    <div class="history-date">${item.date}</div>
-                    <div class="history-action">${item.action}</div>
-                `;
-                historyContainer.appendChild(historyItem);
-            });
-        }
+    // 通知タブのレンダリング（旧履歴タブ）- 機能未実装
+    renderNotificationsTab() {
+        const notificationsList = document.getElementById('user-notifications-list');
+        notificationsList.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #666;">
+                <p>通知機能は今後実装予定です。</p>
+            </div>
+        `;
     }
 
-    renderPermissionsTab() {
+    // 権限タブのレンダリング（最終更新表示・改良版）
+    async renderPermissionsTab() {
         const permissionsContent = document.getElementById('permissions-content');
 
         if (this.userMode === 'admin') {
+            await this.loadAllUsers();
+
+            let userListHtml = '';
+            if (this.allUsers.length === 0) {
+                userListHtml = `
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        <p>ログインしたユーザーはいません。</p>
+                    </div>
+                `;
+            } else {
+                userListHtml = this.allUsers.map((user, index) => {
+                    const displayName = this.formatDisplayName(user);
+                    const avatarUrl = user.avatar
+                        ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=40`
+                        : `https://cdn.discordapp.com/embed/avatars/${user.discriminator % 5}.png`;
+
+                    return `
+                        <div class="user-permission-item" style="position: relative; z-index: ${1000 - index}; margin-bottom: 30px;">
+                            <div class="user-permission-info">
+                                <img src="${avatarUrl}" alt="${displayName}" class="user-permission-avatar">
+                                <div class="user-permission-details">
+                                    <div class="user-permission-name">${displayName}</div>
+                                    <div class="user-permission-id">最終更新: ${new Date(user.lastUpdated || user.lastLogin).toLocaleString('ja-JP')}</div>
+                                </div>
+                            </div>
+                            <div class="role-select-wrapper" style="position: relative; z-index: ${1000 - index};">
+                                <select class="role-select" onchange="lightServer.changeUserRole('${user.id}', this.value)" 
+                                        style="position: relative; z-index: ${1000 - index};">
+                                    <option value="guest" ${user.role === 'guest' ? 'selected' : ''}>一般</option>
+                                    <option value="member" ${user.role === 'member' ? 'selected' : ''}>メンバー</option>
+                                    <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理者</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
             permissionsContent.innerHTML = `
                 <div class="permission-role">管理者権限</div>
                 <div class="permission-description">
-                    すべての機能にアクセスできます。コンテンツの追加・編集・削除、ユーザーの権限管理が可能です。
-                    ${this.adminOverride ? '<br><strong>※ 特別権限で管理者認証されています。</strong>' : ''}
+                    すべての機能にアクセスできます。ユーザーの権限管理も可能です。
                 </div>
-                <h4 style="margin-top: 30px; color: #2c3e50;">ユーザー権限管理</h4>
-                <div id="users-list" class="users-list"></div>
+                <h4 style="margin-top: 20px; color: #2c3e50;">ユーザー権限管理</h4>
+                <div class="users-list">
+                    ${userListHtml}
+                </div>
+                <style>
+                .user-permission-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    background: white;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    margin-bottom: 30px;
+                    min-height: 80px;
+                }
+                .user-permission-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                    flex: 1;
+                    min-width: 0;
+                }
+                .user-permission-avatar {
+                    width: 50px;
+                    height: 50px;
+                    border-radius: 50%;
+                    flex-shrink: 0;
+                }
+                .user-permission-details {
+                    min-width: 0;
+                    flex: 1;
+                }
+                .user-permission-name {
+                    font-weight: bold;
+                    font-size: 16px;
+                    margin-bottom: 6px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    color: #333;
+                }
+                .user-permission-id {
+                    font-size: 13px;
+                    color: #666;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .role-select-wrapper {
+                    min-height: 50px;
+                    min-width: 140px;
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                }
+                .role-select {
+                    width: 140px;
+                    height: 42px;
+                    padding: 10px 12px;
+                    background: white;
+                    border: 2px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 15px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    appearance: menulist;
+                }
+                .role-select:focus {
+                    outline: none;
+                    border-color: #007bff;
+                    box-shadow: 0 0 0 3px rgba(0,123,255,0.2);
+                    background: #f8f9fa;
+                }
+                .role-select:hover {
+                    border-color: #007bff;
+                }
+                .role-select option {
+                    padding: 8px 12px;
+                    background: white;
+                    color: #333;
+                    font-size: 15px;
+                }
+                @media (max-width: 768px) {
+                    .user-permission-item {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 15px;
+                        padding: 15px;
+                        min-height: auto;
+                    }
+                    .role-select-wrapper {
+                        width: 100%;
+                        min-width: auto;
+                    }
+                    .role-select {
+                        width: 100%;
+                    }
+                }
+                </style>
             `;
-            this.renderUsersList();
         } else {
-            const permissions = this.getPermissionDescription();
             permissionsContent.innerHTML = `
-                <div class="permission-role">あなたは${this.getUserRoleDisplay()}です。</div>
-                <div class="permission-description">${permissions}</div>
-            `;
-        }
-    }
-
-    getPermissionDescription() {
-        switch (this.userMode) {
-            case 'member':
-                return 'メンバー権限をお持ちです。自己紹介の追加・編集、お問い合わせの送信、専用コンテンツの閲覧が可能です。';
-            default:
-                return '基本的なコンテンツの閲覧とお問い合わせの送信が可能です。';
-        }
-    }
-
-    renderUsersList() {
-        const usersList = document.getElementById('users-list');
-        if (!usersList) return;
-
-        const sampleUsers = [
-            {
-                id: 'user1',
-                username: 'サンプルユーザー1',
-                avatar: null,
-                role: 'member'
-            },
-            {
-                id: 'user2',
-                username: 'サンプルユーザー2',
-                avatar: null,
-                role: 'general'
-            }
-        ];
-
-        usersList.innerHTML = '';
-
-        if (sampleUsers.length === 0) {
-            usersList.innerHTML = `
-                <div style="text-align: center; padding: 20px; color: #666;">
-                    登録ユーザーはいません。
+                <div class="permission-role">${this.getUserRoleDisplay()}権限</div>
+                <div class="permission-description">
+                    ${this.userMode === 'member' ?
+                        '基本的な機能にアクセスできます。個人のウェブリンク管理、お問い合わせの送信が可能です。' :
+                        '基本的な閲覧機能のみ利用できます。お問い合わせの送信も可能です。'
+                    }
                 </div>
+                <h4 style="margin-top: 20px; color: #2c3e50;">利用可能な機能</h4>
+                <ul style="color: #666; margin: 10px 0 0 20px;">
+                    ${this.userMode === 'member' ? `
+                        <li>個人のウェブリンク管理</li>
+                        <li>お問い合わせの送信（1日3回まで）</li>
+                        <li>通知の確認</li>
+                        <li>サーバー情報の閲覧</li>
+                        <li>自分の投稿の編集・削除</li>
+                    ` : `
+                        <li>コンテンツの閲覧</li>
+                        <li>サーバー情報の閲覧（限定的）</li>
+                        <li>お問い合わせの送信（1日3回まで）</li>
+                    `}
+                </ul>
             `;
-        } else {
-            sampleUsers.forEach(user => {
-                const userItem = document.createElement('div');
-                userItem.className = 'user-permission-item';
-                const avatarUrl = user.avatar
-                    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
-                    : 'https://cdn.discordapp.com/embed/avatars/0.png';
-
-                userItem.innerHTML = `
-                    <div class="user-permission-info">
-                        <img src="${avatarUrl}" alt="${user.username}" class="user-permission-avatar">
-                        <div>
-                            <div class="user-permission-name">${user.username}</div>
-                            <div class="user-permission-id">ID: ${user.id}</div>
-                        </div>
-                    </div>
-                    <select class="role-select" onchange="lightServer.updateUserRole('${user.id}', this.value)">
-                        <option value="general" ${user.role === 'general' ? 'selected' : ''}>一般</option>
-                        <option value="member" ${user.role === 'member' ? 'selected' : ''}>メンバー</option>
-                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理者</option>
-                    </select>
-                `;
-                usersList.appendChild(userItem);
-            });
         }
     }
 
-    updateUserRole(userId, newRole) {
+    async changeUserRole(userId, newRole) {
         if (this.userMode !== 'admin') {
-            alert('権限がありません。');
+            alert('権限がありません');
             return;
         }
 
-        console.log(`ユーザー ${userId} の権限を ${newRole} に変更`);
-        this.addToUserHistory(`ユーザー権限を変更: ${userId} → ${newRole}`);
+        try {
+            const success = await this.updateUserRoleInFirebase(userId, newRole);
+            if (success) {
+                await this.loadAllUsers();
+                await this.renderPermissionsTab();
 
-        alert(`ユーザーの権限を「${newRole}」に変更しました。`);
+                if (userId === this.currentUser.id) {
+                    this.userMode = newRole;
+                    this.updateLoginUI();
+                    this.updateUI();
+
+                    const userRoleElement = document.querySelector('.user-role');
+                    if (userRoleElement) {
+                        userRoleElement.textContent = this.getUserRoleDisplay();
+                    }
+                }
+
+                alert('権限を更新しました');
+            } else {
+                alert('権限の更新に失敗しました');
+            }
+        } catch (error) {
+            console.error('権限変更エラー:', error);
+            alert('権限の更新に失敗しました');
+        }
     }
 
-    addToUserHistory(action) {
-        const historyItem = {
-            date: new Date().toLocaleString('ja-JP'),
-            action: action
-        };
-        this.userHistory.unshift(historyItem);
-
-        if (this.userHistory.length > 50) {
-            this.userHistory = this.userHistory.slice(0, 50);
+    loadUserWebs() {
+        if (!this.isLoggedIn || !this.currentUser) {
+            this.userWebs = [];
+            return;
         }
 
-        localStorage.setItem('user_history', JSON.stringify(this.userHistory));
+        const savedWebs = localStorage.getItem(`user_webs_${this.currentUser.id}`);
+        if (savedWebs) {
+            try {
+                this.userWebs = JSON.parse(savedWebs);
+            } catch (error) {
+                console.error('ユーザーウェブデータ読み込みエラー:', error);
+                this.userWebs = [];
+            }
+        } else {
+            this.userWebs = [];
+        }
+    }
+
+    saveUserWebs() {
+        if (!this.isLoggedIn || !this.currentUser) return;
+
+        localStorage.setItem(`user_webs_${this.currentUser.id}`, JSON.stringify(this.userWebs));
     }
 
     showAddUserWebModal() {
         this.modalType = 'add-user-web';
         const modal = document.getElementById('modal-overlay');
-        const title = document.getElementById('modal-title');
+        const title = document.querySelector('#modal-overlay h3');
         const body = document.getElementById('modal-body');
 
         title.textContent = 'ウェブを追加';
@@ -915,8 +1253,12 @@ class LightServerWebsite {
                 <input type="url" id="user-web-url" placeholder="https://example.com" required>
             </div>
             <div class="form-group">
-                <label for="user-web-description">説明（任意）</label>
-                <textarea id="user-web-description" placeholder="ウェブサイトの説明"></textarea>
+                <label for="user-web-image">画像</label>
+                <div class="file-input-wrapper">
+                    <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">選択</button>
+                    <span id="file-name">画像を選択してください</span>
+                </div>
+                <img id="image-preview" class="image-preview" style="display: none;">
             </div>
         `;
 
@@ -927,7 +1269,6 @@ class LightServerWebsite {
     handleAddUserWeb() {
         const title = document.getElementById('user-web-title').value.trim();
         const url = document.getElementById('user-web-url').value.trim();
-        const description = document.getElementById('user-web-description').value.trim();
 
         if (!title || !url) {
             alert('タイトルとURLを入力してください。');
@@ -945,17 +1286,15 @@ class LightServerWebsite {
             id: Date.now().toString(),
             title: title,
             url: url,
-            description: description,
-            icon: this.getWebIconFromURL(url),
+            icon: this.selectedImageData || this.getWebIconFromURL(url),
             created: new Date().toISOString(),
             userId: this.currentUser.id
         };
 
         this.userWebs.push(webItem);
+        this.saveUserWebs();
+        this.addToUserNotifications(`ウェブリンク「${title}」を追加しました`);
 
-        localStorage.setItem('user_webs', JSON.stringify(this.userWebs));
-
-        this.addToUserHistory(`ウェブを追加: ${title}`);
         this.renderWebTab();
         this.hideModal();
 
@@ -993,7 +1332,7 @@ class LightServerWebsite {
         this.editIndex = index;
 
         const modal = document.getElementById('modal-overlay');
-        const title = document.getElementById('modal-title');
+        const title = document.querySelector('#modal-overlay h3');
         const body = document.getElementById('modal-body');
 
         title.textContent = 'ウェブを編集';
@@ -1008,8 +1347,12 @@ class LightServerWebsite {
                 <input type="url" id="user-web-url" value="${web.url}" required>
             </div>
             <div class="form-group">
-                <label for="user-web-description">説明（任意）</label>
-                <textarea id="user-web-description">${web.description || ''}</textarea>
+                <label for="user-web-image">画像</label>
+                <div class="file-input-wrapper">
+                    <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">変更</button>
+                    <span id="file-name">現在の画像を変更しない</span>
+                </div>
+                <img id="image-preview" class="image-preview" src="${web.icon}" style="display: ${web.icon ? 'block' : 'none'};">
             </div>
         `;
 
@@ -1020,7 +1363,6 @@ class LightServerWebsite {
     handleEditUserWeb() {
         const title = document.getElementById('user-web-title').value.trim();
         const url = document.getElementById('user-web-url').value.trim();
-        const description = document.getElementById('user-web-description').value.trim();
 
         if (!title || !url) {
             alert('タイトルとURLを入力してください。');
@@ -1035,15 +1377,17 @@ class LightServerWebsite {
         }
 
         const web = this.userWebs[this.editIndex];
+        const oldTitle = web.title;
         web.title = title;
         web.url = url;
-        web.description = description;
-        web.icon = this.getWebIconFromURL(url);
+        if (this.selectedImageData) {
+            web.icon = this.selectedImageData;
+        }
         web.updated = new Date().toISOString();
 
-        localStorage.setItem('user_webs', JSON.stringify(this.userWebs));
+        this.saveUserWebs();
+        this.addToUserNotifications(`ウェブリンク「${oldTitle}」を編集しました`);
 
-        this.addToUserHistory(`ウェブを編集: ${title}`);
         this.renderWebTab();
         this.hideModal();
     }
@@ -1053,12 +1397,24 @@ class LightServerWebsite {
         if (!web) return;
 
         if (confirm(`「${web.title}」を削除しますか？`)) {
+            this.addToUserNotifications(`ウェブリンク「${web.title}」を削除しました`);
             this.userWebs.splice(index, 1);
-            localStorage.setItem('user_webs', JSON.stringify(this.userWebs));
+            this.saveUserWebs();
 
-            this.addToUserHistory(`ウェブを削除: ${web.title}`);
             this.renderWebTab();
         }
+    }
+
+    exportData(type) {
+        const data = this.data[type];
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${type}_data_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
     }
 
     async loadData() {
@@ -1069,45 +1425,22 @@ class LightServerWebsite {
             if (snapshot.exists()) {
                 const firebaseData = snapshot.val();
                 Object.keys(this.data).forEach(key => {
-                    this.data[key] = firebaseData[key] || (key === 'serverConfig' ? null : []);
+                    if (key === 'users') {
+                        this.data[key] = firebaseData[key] || {};
+                    } else {
+                        this.data[key] = firebaseData[key] || (key === 'serverConfig' ? null : []);
+                    }
                 });
             }
 
             this.renderCurrentPage();
 
-            if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
+            if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server' && !this.isApiDisabled) {
                 this.startServerStatusUpdates();
             }
         } catch (error) {
             console.error('Firebase データの読み込みに失敗:', error);
             this.loadLocalData();
-        }
-
-        this.loadUserData();
-    }
-
-    loadUserData() {
-        if (this.isLoggedIn && this.currentUser) {
-            const savedWebs = localStorage.getItem('user_webs');
-            const savedHistory = localStorage.getItem('user_history');
-
-            if (savedWebs) {
-                try {
-                    this.userWebs = JSON.parse(savedWebs).filter(web => web.userId === this.currentUser.id);
-                } catch (error) {
-                    console.error('ユーザーウェブデータ読み込みエラー:', error);
-                    this.userWebs = [];
-                }
-            }
-
-            if (savedHistory) {
-                try {
-                    this.userHistory = JSON.parse(savedHistory);
-                } catch (error) {
-                    console.error('ユーザー履歴データ読み込みエラー:', error);
-                    this.userHistory = [];
-                }
-            }
         }
     }
 
@@ -1125,13 +1458,15 @@ class LightServerWebsite {
         Object.keys(this.data).forEach(key => {
             if (key === 'serverConfig') {
                 this.data[key] = JSON.parse(localStorage.getItem(key) || 'null');
+            } else if (key === 'users') {
+                this.data[key] = JSON.parse(localStorage.getItem(key) || '{}');
             } else {
                 this.data[key] = JSON.parse(localStorage.getItem(key) || '[]');
             }
         });
         this.renderCurrentPage();
 
-        if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server') {
+        if (this.data.serverConfig && this.data.serverConfig.address && this.currentPage === 'server' && !this.isApiDisabled) {
             this.startServerStatusUpdates();
         }
     }
@@ -1163,15 +1498,21 @@ class LightServerWebsite {
                     showPlusBtn = true;
                     showSetBtn = false;
                 }
-            } else if (this.userMode === 'member' && (this.currentPage === 'member' || this.currentPage === 'contact')) {
-                if (this.isLoggedIn && this.currentUser) {
+            } else if (this.userMode === 'member') {
+                if (this.currentPage === 'member' || this.currentPage === 'contact') {
+                    if (this.isLoggedIn && this.currentUser) {
+                        showPlusBtn = true;
+                        showSetBtn = false;
+                    }
+                }
+            } else if (this.userMode === 'guest') {
+                if (this.currentPage === 'contact' && this.isLoggedIn && this.currentUser) {
                     showPlusBtn = true;
                     showSetBtn = false;
+                } else {
+                    showPlusBtn = false;
+                    showSetBtn = false;
                 }
-            }
-            else if (this.userMode === 'guest') {
-                showPlusBtn = false;
-                showSetBtn = false;
             }
         }
 
@@ -1185,21 +1526,21 @@ class LightServerWebsite {
             setBtn.offsetHeight;
 
             if (this.currentPage === 'server' && showSetBtn) {
-                setBtn.style.right = '30px';
-                setBtn.style.bottom = '30px';
+                setBtn.classList.add('server-page-position');
             } else {
-                setBtn.style.right = '100px';
-                setBtn.style.bottom = '30px';
+                setBtn.classList.remove('server-page-position');
             }
         }
 
         deleteButtons.forEach(btn => {
-            btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
+            btn.style.display = this.userMode === 'admin' ? 'flex' : 'none';
         });
 
         editButtons.forEach(btn => {
-            btn.style.display = this.userMode === 'admin' ? 'block' : 'none';
+            btn.style.display = this.userMode === 'admin' ? 'flex' : 'none';
         });
+
+        console.log(`UI更新: userMode=${this.userMode}, currentPage=${this.currentPage}, showPlusBtn=${showPlusBtn}, showSetBtn=${showSetBtn}`);
     }
 
     renderCurrentPage() {
@@ -1269,7 +1610,7 @@ class LightServerWebsite {
         });
 
         if (this.data.schedule.length !== originalLength) {
-            console.log(`期限切れの予定 ${originalLength - this.data.schedule.length} 件を自動削除しました`);
+            console.log(`期限切れのスケジュール ${originalLength - this.data.schedule.length} 件を自動削除しました`);
             this.saveData();
         }
 
@@ -1334,7 +1675,7 @@ class LightServerWebsite {
                     pointer-events: none !important;
                     user-select: none !important;
                 }
-                
+
                 .roadmap-timeline {
                     cursor: default !important;
                     position: relative;
@@ -1342,7 +1683,7 @@ class LightServerWebsite {
                     padding-left: 50px;
                     border-left: 3px solid #007BFF;
                 }
-                
+
                 /* 全ての動的効果を無効化 */
                 .roadmap-timeline, 
                 .roadmap-timeline .roadmap-item, 
@@ -1352,7 +1693,7 @@ class LightServerWebsite {
                     animation: none !important;
                     box-shadow: none !important;
                 }
-                
+
                 .roadmap-timeline .roadmap-item {
                     position: relative;
                     padding: 30px 40px !important;
@@ -1366,7 +1707,7 @@ class LightServerWebsite {
                 .roadmap-timeline .roadmap-item:last-child {
                     margin-bottom: 40px !important;
                 }
-                
+
                 .roadmap-timeline .roadmap-item::before {
                     content: "";
                     position: absolute;
@@ -1380,7 +1721,7 @@ class LightServerWebsite {
                     box-shadow: 0 0 6px rgba(0, 123, 255, 0.3) !important;
                     cursor: default !important;
                 }
-                
+
                 .roadmap-timeline .roadmap-item h3 {
                     margin-top: 0;
                     margin-bottom: 15px;
@@ -1388,20 +1729,20 @@ class LightServerWebsite {
                     font-weight: bold;
                     font-size: 1.4rem;
                 }
-                
+
                 .roadmap-timeline .roadmap-item .content-date {
                     color: #666 !important;
                     font-weight: bold;
                     margin-bottom: 12px;
                     font-size: 0.95rem;
                 }
-                
+
                 .roadmap-timeline .roadmap-item .content-body {
                     color: #555;
                     line-height: 1.6;
                     font-size: 1rem;
                 }
-                
+
                 .roadmap-timeline .roadmap-item .edit-btn,
                 .roadmap-timeline .roadmap-item .delete-btn {
                     position: absolute;
@@ -1413,11 +1754,11 @@ class LightServerWebsite {
                     z-index: 3;
                     pointer-events: auto !important;
                 }
-                
-                .roadmap-timeline .roadmap-item .delete-btn {
+
+                    .roadmap-timeline .roadmap-item .delete-btn {
                     right: 40px;
                 }
-                
+
                 /* ホバー効果完全無効化 */
                 .roadmap-timeline:hover,
                 .roadmap-timeline:hover .roadmap-item,
@@ -1426,7 +1767,7 @@ class LightServerWebsite {
                     transform: none !important;
                     box-shadow: none !important;
                 }
-                
+
                 @media (max-width: 992px) {
                     .roadmap-timeline {
                         margin-left: 40px;
@@ -1440,7 +1781,7 @@ class LightServerWebsite {
                         left: -65px;
                     }
                 }
-                
+
                 @media (max-width: 768px) {
                     .roadmap-timeline {
                         margin-left: 35px;
@@ -1456,7 +1797,7 @@ class LightServerWebsite {
                         height: 14px;
                     }
                 }
-                
+
                 @media (max-width: 480px) {
                     .roadmap-timeline {
                         margin-left: 30px;
@@ -1486,22 +1827,75 @@ class LightServerWebsite {
         this.updateUI();
     }
 
+
+    // お問い合わせのレンダリング（自分のもののみ表示・管理者はユーザー別グループ化・修正版）
     renderContact() {
         const container = document.getElementById('contact-list');
         if (!container) return;
         container.innerHTML = '';
-        if (this.data.contact.length === 0) {
-            container.innerHTML = `
-                <div class="no-content">
-                    <p>お問い合わせはまだありません。</p>
-                    <p>右下の「+」ボタンからお問い合わせを送信できます。</p>
-                </div>
-            `;
-        } else {
-            this.data.contact.forEach((item, index) => {
-                const element = this.createContentElement(item, index, 'contact');
-                container.appendChild(element);
+
+        if (this.userMode === 'admin') {
+            // 管理者：ユーザーごとにグループ化して表示
+            const groupedContacts = {};
+            this.data.contact.forEach(item => {
+                const userId = item.userId || 'anonymous';
+                if (!groupedContacts[userId]) {
+                    groupedContacts[userId] = [];
+                }
+                groupedContacts[userId].push(item);
             });
+
+            if (Object.keys(groupedContacts).length === 0) {
+                container.innerHTML = `
+                    <div class="no-content">
+                        <p>お問い合わせはまだありません。</p>
+                    </div>
+                `;
+            } else {
+                Object.keys(groupedContacts).forEach(userId => {
+                    const userContacts = groupedContacts[userId];
+                    const userName = userContacts[0].sender || '匿名ユーザー';
+
+                    // ユーザーグループヘッダー
+                    const groupHeader = document.createElement('div');
+                    groupHeader.className = 'contact-user-group-header';
+                    groupHeader.innerHTML = `
+                        <h3 style="color: #007bff; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #007bff;">
+                            ${userName}からのお問い合わせ (${userContacts.length}件)
+                        </h3>
+                    `;
+                    container.appendChild(groupHeader);
+
+                    // そのユーザーのお問い合わせリスト
+                    userContacts.forEach((item, index) => {
+                        const element = this.createContentElement(item, this.data.contact.indexOf(item), 'contact', false, true);
+                        element.style.marginLeft = '20px';
+                        element.style.marginBottom = '20px';
+                        container.appendChild(element);
+                    });
+                });
+            }
+        } else {
+            // 一般ユーザー・メンバー：自分のお問い合わせのみ表示
+            const filteredContacts = this.data.contact.filter(item =>
+                this.isLoggedIn && this.currentUser && item.userId === this.currentUser.id
+            );
+
+            if (filteredContacts.length === 0) {
+                container.innerHTML = `
+                    <div class="no-content">
+                        <p>あなたのお問い合わせはまだありません。</p>
+                        <p>右下の「+」ボタンからお問い合わせを送信できます。</p>
+                        ${this.isLoggedIn ? `<p>残り送信回数: ${3 - this.dailyContactCount}回/日</p>` : ''}
+                    </div>
+                `;
+            } else {
+                filteredContacts.forEach((item) => {
+                    const originalIndex = this.data.contact.indexOf(item);
+                    const element = this.createContentElement(item, originalIndex, 'contact', true, false);
+                    container.appendChild(element);
+                });
+            }
         }
         this.updateUI();
     }
@@ -1538,72 +1932,12 @@ class LightServerWebsite {
         } else {
             const showAddress = this.userMode !== 'guest';
 
-            let playerListHtml = '';
-            if (status.online && status.players) {
-                if (status.players.sample && status.players.sample.length > 0) {
-                    playerListHtml = `
-                        <div class="server-players-list">
-                            <h4 class="players-list-title">オンラインプレイヤー (${status.players.sample.length})</h4>
-                            <div class="players-container">
-                    `;
-
-                    status.players.sample.forEach(player => {
-                        const skinUrl1 = `https://crafatar.com/avatars/${player.id}?size=32&overlay`;
-                        const skinUrl2 = `https://mc-heads.net/avatar/${player.id}/32`;
-                        const skinUrl3 = `https://minotar.net/helm/${player.name}/32`;
-
-                        playerListHtml += `
-                            <div class="player-item" title="${player.name}">
-                                <img src="${skinUrl1}" alt="${player.name}" class="player-skin" 
-                                     onerror="this.onerror=null; this.src='${skinUrl2}'; this.onerror=function(){this.src='${skinUrl3}';}">
-                                <span class="player-name">${player.name}</span>
-                                <span class="player-status">オンライン</span>
-                            </div>
-                        `;
-                    });
-
-                    playerListHtml += '</div></div>';
-                } else if (status.players.online > 0) {
-                    playerListHtml = `
-                        <div class="server-players-list">
-                            <h4 class="players-list-title">プレイヤー情報</h4>
-                            <div class="players-container">
-                                <div class="no-player-sample">
-                                    <div class="player-count-display">
-                                        <span class="large-player-count">${status.players.online}</span>
-                                        <span class="player-count-label">人がオンライン</span>
-                                    </div>
-                                    <div class="player-sample-note">
-                                        <span>プレイヤーリストの詳細は表示できません</span>
-                                        <span class="sample-help">（サーバー設定でenable-query=trueにすると表示されます）</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    playerListHtml = `
-                        <div class="server-players-list">
-                            <h4 class="players-list-title">プレイヤー情報</h4>
-                            <div class="players-container">
-                                <div class="no-player-sample">
-                                    <span class="empty-server-message">現在、誰もオンラインではありません</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-
             if (showAddress) {
                 serverContent = `
                     <div class="server-status-card">
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="realtime-indicator">
-                                <span class="realtime-badge">リアルタイム</span>
-                            </div>
                         </div>
                         <div class="server-layout-member-with-players">
                             <div class="server-address-full">
@@ -1612,18 +1946,17 @@ class LightServerWebsite {
                             </div>
                             <div class="server-players-section">
                                 <div class="server-detail-label">プレイヤー</div>
-                                <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                                <div class="server-detail-value server-players">${status.players ? status.players.online : 0}/${status.players ? status.players.max : 0}</div>
                             </div>
                             <div class="server-version-section">
                                 <div class="server-detail-label">バージョン</div>
-                                <div class="server-detail-value">${status.version}</div>
+                                <div class="server-detail-value">${config.version || 'バージョン未設定'}</div>
                             </div>
                             <div class="server-type-section">
                                 <div class="server-detail-label">サーバータイプ</div>
                                 <div class="server-detail-value">${config.serverType}</div>
                             </div>
                         </div>
-                        ${playerListHtml}
                     </div>
                 `;
             } else {
@@ -1632,9 +1965,6 @@ class LightServerWebsite {
                         <div class="server-status-header">
                             <div class="server-status-icon ${status.online ? 'server-status-online' : 'server-status-offline'}"></div>
                             <h3 class="server-status-title">${status.online ? 'オンライン' : 'オフライン'}</h3>
-                            <div class="realtime-indicator">
-                                <span class="realtime-badge">リアルタイム</span>
-                            </div>
                         </div>
                         <div class="server-layout-guest-with-players">
                             <div class="server-application-full">
@@ -1643,18 +1973,17 @@ class LightServerWebsite {
                             </div>
                             <div class="server-players-section">
                                 <div class="server-detail-label">プレイヤー</div>
-                                <div class="server-detail-value server-players">${status.players.online} / ${status.players.max}</div>
+                                <div class="server-detail-value server-players">${status.players ? status.players.online : 0}/${status.players ? status.players.max : 0}</div>
                             </div>
                             <div class="server-version-section">
                                 <div class="server-detail-label">バージョン</div>
-                                <div class="server-detail-value">${status.version}</div>
+                                <div class="server-detail-value">${config.version || 'バージョン未設定'}</div>
                             </div>
                             <div class="server-type-section">
                                 <div class="server-detail-label">サーバータイプ</div>
                                 <div class="server-detail-value">${config.serverType}</div>
                             </div>
                         </div>
-                        ${playerListHtml}
                     </div>
                 `;
             }
@@ -1757,9 +2086,21 @@ class LightServerWebsite {
         this.editType = '';
     }
 
-    createContentElement(item, index, type) {
+    // コンテンツ要素作成（削除権限修正・管理者用返信ボタン追加）
+    createContentElement(item, index, type, isFiltered = false, isAdmin = false) {
         const div = document.createElement('div');
         div.className = `${type}-item`;
+
+        // 削除権限の判定
+        const canDelete = this.userMode === 'admin' ||
+            (this.isLoggedIn && this.currentUser &&
+             (type === 'member' || type === 'contact') &&
+             item.userId === this.currentUser.id);
+
+        const canEdit = this.userMode === 'admin' ||
+            (this.isLoggedIn && this.currentUser &&
+             (type === 'member' || type === 'contact') &&
+             item.userId === this.currentUser.id);
 
         if (type === 'member') {
             div.innerHTML = `
@@ -1768,64 +2109,153 @@ class LightServerWebsite {
                     <h3>${item.name}</h3>
                     <div class="member-description">${this.parseDiscordMarkdown(item.description)}</div>
                 </div>
-                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
-                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: ${canEdit ? 'flex' : 'none'};" title="編集">✏️</button>
+                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: ${canDelete ? 'flex' : 'none'};">×</button>
             `;
         } else if (type === 'web') {
             div.className = 'web-item';
             div.innerHTML = `
                 <img src="${item.icon}" alt="${item.title}" class="web-icon">
                 <div class="web-title">${item.title}</div>
-                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
-                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: ${this.userMode === 'admin' ? 'flex' : 'none'};" title="編集">✏️</button>
+                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: ${this.userMode === 'admin' ? 'flex' : 'none'};">×</button>
             `;
             div.addEventListener('click', (e) => {
                 if (!e.target.matches('.edit-btn, .delete-btn')) {
                     window.open(item.url, '_blank');
                 }
             });
-        } else if (type === 'roadmap') {
-            div.className = 'roadmap-item';
-            div.innerHTML = `
-                <div class="roadmap-date">${item.date}</div>
+        } else if (type === 'contact') {
+            div.className = 'content-item';
+            let contactContent = `
                 <h3>${item.title}</h3>
-                <div class="roadmap-content">${this.parseDiscordMarkdown(item.content)}</div>
-                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
-                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
+                <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
+                <div class="content-date">${item.date} - ${item.sender}</div>
             `;
+
+            // 返信がある場合は表示
+            if (item.reply && item.reply.content) {
+                contactContent += `
+                    <div class="contact-reply" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-left: 3px solid #007bff;">
+                        <div style="font-weight: bold; color: #007bff;">管理者からの返信:</div>
+                        <div>${this.parseDiscordMarkdown(item.reply.content)}</div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">${item.reply.date} - ${item.reply.sender}</div>
+                    </div>
+                `;
+            }
+
+            // 管理者用返信ボタン
+            if (this.userMode === 'admin' && (!item.reply || !item.reply.content)) {
+                contactContent += `
+                    <button class="btn btn-small btn-primary reply-btn" onclick="lightServer.showContactReplyModal(${index})" style="margin-top: 10px;">返信</button>
+                `;
+            }
+
+            contactContent += `
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: ${canEdit ? 'flex' : 'none'};" title="編集">✏️</button>
+                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: ${canDelete ? 'flex' : 'none'};">×</button>
+            `;
+
+            div.innerHTML = contactContent;
         } else {
             div.className = 'content-item';
             div.innerHTML = `
                 <h3>${item.title}</h3>
                 <div class="content-body">${this.parseDiscordMarkdown(item.content)}</div>
                 <div class="content-date">${item.date}</div>
-                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: none;" title="編集">✏️</button>
-                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: none;">×</button>
+                <button class="edit-btn" data-type="${type}" data-index="${index}" style="display: ${this.userMode === 'admin' ? 'flex' : 'none'};" title="編集">✏️</button>
+                <button class="delete-btn" data-type="${type}" data-index="${index}" style="display: ${this.userMode === 'admin' ? 'flex' : 'none'};">×</button>
             `;
         }
 
         const editBtn = div.querySelector('.edit-btn');
-        editBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.showEditModal(type, index);
-        });
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showEditModal(type, index);
+            });
+        }
 
         const deleteBtn = div.querySelector('.delete-btn');
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm('この項目を削除しますか？')) {
-                this.data[type].splice(index, 1);
-                this.saveData();
-                this.renderCurrentPage();
-            }
-        });
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('この項目を削除しますか？')) {
+                    this.data[type].splice(index, 1);
+                    this.saveData();
+                    this.renderCurrentPage();
+                }
+            });
+        }
 
         return div;
     }
 
+    // お問い合わせ返信モーダル表示
+    showContactReplyModal(index) {
+        const item = this.data.contact[index];
+        if (!item) return;
+
+        this.modalType = 'reply-contact';
+        this.editIndex = index;
+
+        const modal = document.getElementById('modal-overlay');
+        const title = document.querySelector('#modal-overlay h3');
+        const body = document.getElementById('modal-body');
+
+        title.textContent = 'お問い合わせに返信';
+
+        body.innerHTML = `
+            <div class="form-group">
+                <label>元のお問い合わせ</label>
+                <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                    <h4>${item.title}</h4>
+                    <div>${this.parseDiscordMarkdown(item.content)}</div>
+                    <div style="font-size: 0.9em; color: #666; margin-top: 5px;">${item.date} - ${item.sender}</div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="reply-content">返信内容</label>
+                <textarea id="reply-content" placeholder="返信内容を入力してください" required style="height: 100px;"></textarea>
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    // お問い合わせ返信処理
+    handleContactReply() {
+        const content = document.getElementById('reply-content').value.trim();
+
+        if (!content) {
+            alert('返信内容を入力してください');
+            return;
+        }
+
+        const item = this.data.contact[this.editIndex];
+        if (!item) {
+            alert('お問い合わせが見つかりません');
+            return;
+        }
+
+        item.reply = {
+            content: content,
+            date: this.getCurrentDateString(),
+            sender: this.formatDisplayName(this.currentUser),
+            adminId: this.currentUser.id
+        };
+
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
+
+        alert('返信を送信しました');
+    }
+
     showEditModal(type, index) {
         const modal = document.getElementById('modal-overlay');
-        const title = document.getElementById('modal-title');
+        const title = document.querySelector('#modal-overlay h3');
         const body = document.getElementById('modal-body');
 
         this.modalType = 'edit';
@@ -1852,7 +2282,7 @@ class LightServerWebsite {
                     <div class="form-group">
                         <label for="${field.id}">${field.label}</label>
                         <div class="file-input-wrapper">
-                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
+                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">選択</button>
                             <span id="file-name">現在の画像を変更しない</span>
                         </div>
                         <img id="image-preview" class="image-preview" src="${currentValue}" style="display: ${currentValue ? 'block' : 'none'};">
@@ -1890,6 +2320,72 @@ class LightServerWebsite {
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+    }
+
+    handleEditSubmit() {
+        const fields = this.getFormFields();
+        const data = {};
+        let isValid = true;
+
+        fields.forEach(field => {
+            if (field.type === 'file') {
+                if (this.selectedImageData) {
+                    data[field.id.replace('-', '')] = this.selectedImageData;
+                } else {
+                    data[field.id.replace('-', '')] = this.data[this.editType][this.editIndex][field.id.replace('-', '')];
+                }
+            } else if (field.type === 'select') {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+
+                if (this.currentPage === 'web' && field.id === 'type') {
+                    data.icon = this.getWebIconPath(value);
+                }
+            } else if (field.type === 'date') {
+                const value = document.getElementById(field.id).value;
+                if (!value) {
+                    alert(`${field.label}を選択してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = this.formatDateForDisplay(value);
+            } else {
+                const value = document.getElementById(field.id).value.trim();
+                if (!value) {
+                    alert(`${field.label}を入力してください`);
+                    isValid = false;
+                    return;
+                }
+                data[field.id] = value;
+            }
+        });
+
+        if (!isValid) return;
+
+        if (this.editType !== 'news') {
+            data.date = this.data[this.editType][this.editIndex].date;
+            if (this.editType === 'contact') {
+                data.sender = this.data[this.editType][this.editIndex].sender;
+                data.userId = this.data[this.editType][this.editIndex].userId;
+                if (this.data[this.editType][this.editIndex].reply) {
+                    data.reply = this.data[this.editType][this.editIndex].reply;
+                }
+            }
+            if (this.editType === 'member') {
+                data.userId = this.data[this.editType][this.editIndex].userId;
+            }
+        }
+
+        this.data[this.editType][this.editIndex] = data;
+
+        this.saveData();
+        this.renderCurrentPage();
+        this.hideModal();
     }
 
     parseDiscordMarkdown(text) {
@@ -1953,67 +2449,9 @@ class LightServerWebsite {
         return commonFields[this.currentPage] || [];
     }
 
-    handleEditSubmit() {
-        const fields = this.getFormFields();
-        const data = {};
-        let isValid = true;
-
-        fields.forEach(field => {
-            if (field.type === 'file') {
-                if (this.selectedImageData) {
-                    data[field.id.replace('-', '')] = this.selectedImageData;
-                } else {
-                    data[field.id.replace('-', '')] = this.data[this.editType][this.editIndex][field.id.replace('-', '')];
-                }
-            } else if (field.type === 'select') {
-                const value = document.getElementById(field.id).value.trim();
-                if (!value) {
-                    alert(`${field.label}を選択してください`);
-                    isValid = false;
-                    return;
-                }
-                data[field.id] = value;
-
-                if (this.currentPage === 'web' && field.id === 'type') {
-                    data.icon = this.getWebIconPath(value);
-                }
-            } else if (field.type === 'date') {
-                const value = document.getElementById(field.id).value;
-                if (!value) {
-                    alert(`${field.label}を選択してください`);
-                    isValid = false;
-                    return;
-                }
-                data[field.id] = this.formatDateForDisplay(value);
-            } else {
-                const value = document.getElementById(field.id).value.trim();
-                if (!value) {
-                    alert(`${field.label}を入力してください`);
-                    isValid = false;
-                    return;
-                }
-                data[field.id] = value;
-            }
-        });
-
-        if (!isValid) return;
-
-        if (this.editType !== 'news') {
-            data.date = this.data[this.editType][this.editIndex].date;
-        }
-
-        this.data[this.editType][this.editIndex] = data;
-
-        this.saveData();
-        this.renderCurrentPage();
-        this.hideModal();
-
-        alert('編集内容を保存しました');
-    }
-
     showAddModal() {
         const modal = document.getElementById('modal-overlay');
-        const title = document.getElementById('modal-title');
+        const title = document.querySelector('#modal-overlay h3');
         const body = document.getElementById('modal-body');
 
         title.textContent = `${this.getPageDisplayName()}を追加`;
@@ -2033,8 +2471,8 @@ class LightServerWebsite {
                     <div class="form-group">
                         <label for="${field.id}">${field.label}</label>
                         <div class="file-input-wrapper">
-                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">画像を選択</button>
-                            <span id="file-name"></span>
+                            <button type="button" class="file-select-btn" onclick="document.getElementById('hidden-file-input').click()">選択</button>
+                            <span id="file-name">ファイルが選択されていません</span>
                         </div>
                         <img id="image-preview" class="image-preview" style="display: none;">
                     </div>
@@ -2043,7 +2481,7 @@ class LightServerWebsite {
                 return `
                     <div class="form-group">
                         <label for="${field.id}">${field.label}</label>
-                        <input type="date" id="${field.id}" placeholder="">
+                        <input type="date" id="${field.id}">
                     </div>
                 `;
             } else if (field.type === 'select') {
@@ -2069,33 +2507,13 @@ class LightServerWebsite {
             }
         }).join('');
 
-        if (this.currentPage === 'web') {
-            setTimeout(() => {
-                const typeSelect = document.getElementById('type');
-                const iconPreview = document.getElementById('service-icon-preview');
-                const iconImage = document.getElementById('service-icon-image');
-                if (typeSelect) {
-                    typeSelect.addEventListener('change', () => {
-                        const selectedType = typeSelect.value;
-                        if (selectedType) {
-                            iconImage.src = this.getWebIconPath(selectedType);
-                            iconImage.alt = selectedType;
-                            iconPreview.style.display = 'block';
-                        } else {
-                            iconPreview.style.display = 'none';
-                        }
-                    });
-                }
-            }, 100);
-        }
-
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }
 
     showServerSettingsModal() {
         const modal = document.getElementById('modal-overlay');
-        const title = document.getElementById('modal-title');
+        const title = document.querySelector('#modal-overlay h3');
         const body = document.getElementById('modal-body');
 
         title.textContent = 'サーバー設定';
@@ -2118,6 +2536,10 @@ class LightServerWebsite {
                     <option value="BungeeCord" ${currentConfig.serverType === 'BungeeCord' ? 'selected' : ''}>BungeeCord</option>
                     <option value="Velocity" ${currentConfig.serverType === 'Velocity' ? 'selected' : ''}>Velocity</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label for="server-version">バージョン</label>
+                <input type="text" id="server-version" value="${currentConfig.version || ''}" placeholder="1.21.1">
             </div>
             <div class="form-group">
                 <label for="server-application">参加方法</label>
@@ -2179,6 +2601,26 @@ class LightServerWebsite {
             data.date = this.getCurrentDateString();
         }
 
+        if (this.currentPage === 'contact') {
+            if (!this.canSendContact()) {
+                alert(`1日のお問い合わせ上限（3回）に達しています。明日0:00にリセットされます。`);
+                return;
+            }
+
+            data.sender = this.isLoggedIn ? this.formatDisplayName(this.currentUser) : 'ゲスト';
+            if (this.isLoggedIn && this.currentUser) {
+                data.userId = this.currentUser.id;
+            }
+
+            this.incrementContactCount();
+        }
+
+        if (this.currentPage === 'member') {
+            if (this.isLoggedIn && this.currentUser) {
+                data.userId = this.currentUser.id;
+            }
+        }
+
         if (this.currentPage === 'web') {
             this.data[this.currentPage].push(data);
         } else {
@@ -2193,6 +2635,7 @@ class LightServerWebsite {
     handleServerSettingsSubmit() {
         const address = document.getElementById('server-address').value.trim();
         const serverType = document.getElementById('server-type').value;
+        const version = document.getElementById('server-version').value.trim();
         const application = document.getElementById('server-application').value.trim();
 
         if (!address) {
@@ -2203,6 +2646,7 @@ class LightServerWebsite {
         this.data.serverConfig = {
             address: address,
             serverType: serverType,
+            version: version,
             application: application
         };
 
@@ -2227,6 +2671,11 @@ class LightServerWebsite {
             return;
         }
 
+        if (!this.canSendContact()) {
+            alert(`1日のお問い合わせ上限（3回）に達しています。明日0:00にリセットされます。`);
+            return;
+        }
+
         const contactItem = {
             title: title,
             content: content,
@@ -2234,12 +2683,16 @@ class LightServerWebsite {
             sender: this.isLoggedIn ? this.formatDisplayName(this.currentUser) : 'ゲスト'
         };
 
+        if (this.isLoggedIn && this.currentUser) {
+            contactItem.userId = this.currentUser.id;
+        }
+
+        this.incrementContactCount();
+
         this.data.contact.unshift(contactItem);
         this.saveData();
         this.renderCurrentPage();
         this.hideModal();
-
-        alert('お問い合わせを送信しました');
     }
 
     handleFileSelect(event) {
@@ -2282,7 +2735,7 @@ class LightServerWebsite {
         }
 
         this.serverUpdateInterval = setInterval(() => {
-            if (this.data.serverConfig && this.data.serverConfig.address) {
+            if (this.data.serverConfig && this.data.serverConfig.address && !this.isApiDisabled) {
                 this.fetchServerStatus();
             }
         }, 5000);
@@ -2303,7 +2756,6 @@ class LightServerWebsite {
         }
 
         const address = this.data.serverConfig.address;
-        const serverType = this.data.serverConfig.serverType;
 
         try {
             const response = await fetch(`https://api.mcsrvstat.us/3/${address}`);
@@ -2327,27 +2779,13 @@ class LightServerWebsite {
                 throw new Error('Invalid API response');
             }
 
-            let version = 'Unknown';
-            let players = { online: 0, max: 0, sample: [] };
-
-            if (data.players) {
-                players.online = data.players.online || 0;
-                players.max = data.players.max || 0;
-                if (data.players.sample && data.players.sample.length > 0) {
-                    players.sample = data.players.sample;
-                }
-            }
-
-            if (serverType === 'BungeeCord' || serverType === 'Velocity') {
-                version = this.extractProxyLobbyVersion([data], serverType);
-            } else {
-                version = this.extractServerVersion([data]);
-            }
-
             this.serverStatus = {
                 online: data.online === true,
-                players: players,
-                version: version,
+                players: {
+                    online: data.players?.online || 0,
+                    max: data.players?.max || 0
+                },
+                version: this.data.serverConfig.version || 'バージョン未設定',
                 motd: data.motd ? (data.motd.clean || data.motd) : 'No MOTD',
                 lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
             };
@@ -2371,8 +2809,11 @@ class LightServerWebsite {
 
             this.serverStatus = {
                 online: false,
-                players: { online: 0, max: 0, sample: [] },
-                version: 'Status unavailable',
+                players: {
+                    online: 0,
+                    max: 0
+                },
+                version: this.data.serverConfig.version || 'バージョン未設定',
                 motd: 'Connection failed...',
                 lastApiUpdate: new Date().toLocaleTimeString('ja-JP')
             };
@@ -2382,92 +2823,12 @@ class LightServerWebsite {
             }
         }
     }
-
-    extractProxyLobbyVersion(results, serverType) {
-        for (const data of results) {
-            if (data.version) {
-                const detailedVersionMatch = data.version.match(/(1\.21\.|1\.20\.|1\.19\.|1\.18\.|1\.17\.|1\.16\.|1\.15\.|1\.14\.|1\.13\.|1\.12\.|1\.11\.|1\.10\.|1\.9\.|1\.8\.)/);
-                if (detailedVersionMatch) {
-                    return `v${detailedVersionMatch[0]}`;
-                }
-                const generalVersionMatch = data.version.match(/(1\.\d+)/);
-                if (generalVersionMatch) {
-                    return `v${generalVersionMatch[0]}`;
-                }
-            }
-
-            if (data.software && data.software.version) {
-                const softwareVersion = data.software.version;
-                if (!softwareVersion.toLowerCase().includes('proxy') &&
-                    !softwareVersion.toLowerCase().includes('bungeecord') &&
-                    !softwareVersion.toLowerCase().includes('velocity') &&
-                    !softwareVersion.toLowerCase().includes('waterfall')) {
-                    const detailedVersionMatch = softwareVersion.match(/(1\.21\.|1\.20\.|1\.19\.|1\.18\.|1\.17\.|1\.16\.|1\.15\.|1\.14\.|1\.13\.|1\.12\.|1\.11\.|1\.10\.|1\.9\.|1\.8\.)/);
-                    if (detailedVersionMatch) {
-                        return `v${detailedVersionMatch[0]}`;
-                    }
-                    const generalVersionMatch = softwareVersion.match(/(1\.\d+)/);
-                    if (generalVersionMatch) {
-                        return `v${generalVersionMatch[0]}`;
-                    }
-                }
-            }
-
-            if (data.protocol && data.protocol.version) {
-                const exactVersionMap = {
-                    770: '1.21.5', 769: '1.21.4', 768: '1.21.3', 767: '1.21.2', 765: '1.21.1', 763: '1.21',
-                    762: '1.20.6', 761: '1.20.5', 760: '1.20.4', 759: '1.20.3', 758: '1.20.2', 757: '1.20.1', 756: '1.20',
-                    755: '1.19.4', 754: '1.19.3', 753: '1.19.2', 752: '1.19.1', 751: '1.19',
-                    750: '1.18.2', 749: '1.18.1', 748: '1.18',
-                    747: '1.17.1', 746: '1.17',
-                    745: '1.16.5', 744: '1.16.4', 743: '1.16.3', 742: '1.16.2', 741: '1.16.1', 740: '1.16',
-                    578: '1.15.2', 577: '1.15.1', 575: '1.15',
-                    498: '1.14.4', 490: '1.14.3', 485: '1.14.2', 480: '1.14.1', 477: '1.14',
-                    404: '1.13.2', 401: '1.13.1', 393: '1.13',
-                    340: '1.12.2', 338: '1.12.1', 335: '1.12',
-                    316: '1.11.2', 315: '1.11.1', 315: '1.11',
-                    210: '1.10.2', 210: '1.10.1', 210: '1.10',
-                    184: '1.9.4', 183: '1.9.3', 176: '1.9.2', 175: '1.9.1', 169: '1.9',
-                    47: '1.8.9'
-                };
-                
-                const protocolVersion = data.protocol.version;
-                if (exactVersionMap[protocolVersion]) {
-                    return `v${exactVersionMap[protocolVersion]}`;
-                }
-            }
-        }
-
-        return 'Unknown Version';
-    }
-
-    extractServerVersion(results) {
-        for (const data of results) {
-            if (data.version && data.version.match(/1\.\d+/)) {
-                return `v${data.version}`;
-            }
-            if (data.software && data.software.version) {
-                return `v${data.software.version}`;
-            }
-            if (data.protocol && data.protocol.version) {
-                const versionMap = {
-                    768: '1.21.5', 767: '1.21.4', 766: '1.21.3', 765: '1.21.2', 764: '1.21.1', 763: '1.21',
-                    762: '1.20.6', 761: '1.20.5', 760: '1.20.4', 759: '1.20.3', 758: '1.20.2', 757: '1.20.1', 756: '1.20',
-                    755: '1.19.4', 754: '1.19.3', 753: '1.19.2', 752: '1.19.1', 751: '1.19',
-                    47: '1.8.9'
-                };
-                return versionMap[data.protocol.version] ? `v${versionMap[data.protocol.version]}` : `Protocol ${data.protocol.version}`;
-            }
-        }
-        return 'Unknown';
-    }
 }
 
-// グローバルインスタンス
 let lightServer;
 
 document.addEventListener('DOMContentLoaded', () => {
     lightServer = new LightServerWebsite();
     window.lightServer = lightServer;
-    console.log('光鯖公式ホームページ初期化完了（ロードマップのみ完全静的化版）');
+    console.log('光鯖公式ホームページ初期化完了（全改善対応・完全版・最終版）');
 });
