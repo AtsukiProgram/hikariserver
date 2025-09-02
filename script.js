@@ -1685,8 +1685,8 @@ class LightServerWebsite {
                 }
 
                 /* 全ての動的効果を無効化 */
-                .roadmap-timeline, 
-                .roadmap-timeline .roadmap-item, 
+                .roadmap-timeline,
+                .roadmap-timeline .roadmap-item,
                 .roadmap-timeline .roadmap-item::before {
                     transition: none !important;
                     transform: none !important;
@@ -1703,7 +1703,7 @@ class LightServerWebsite {
                     box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
                     cursor: default !important;
                 }
-                
+
                 .roadmap-timeline .roadmap-item:last-child {
                     margin-bottom: 40px !important;
                 }
