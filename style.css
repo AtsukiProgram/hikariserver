@@ -345,55 +345,78 @@ body {
     color: white;
 }
 
-/* ロードマップタイムライン */
+/* ロードマップタイムライン（修正版：縦線一本化・他のタブと同じボタン表示） */
 .roadmap-timeline {
     position: relative;
-    padding-left: 30px;
+    margin-left: 50px;
+    padding-left: 70px;
+    border-left: 3px solid #007BFF; /* メインの縦線のみ */
+    transition: all 0.3s ease;
 }
 
+/* 不要な二重縦線の削除 */
 .roadmap-timeline::before {
-    content: '';
-    position: absolute;
-    left: 15px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #3498db;
+    content: none !important;
+    display: none !important;
 }
 
-.roadmap-item {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    margin-bottom: 30px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+.roadmap-timeline:hover {
+    transform: translateX(8px);
+}
+
+.roadmap-timeline .roadmap-item {
     position: relative;
+    padding: 30px 40px !important;
+    margin-bottom: 80px !important;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
 }
 
-.roadmap-item::before {
-    content: '';
+.roadmap-timeline .roadmap-item:hover {
+    transform: translateX(8px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.roadmap-timeline .roadmap-item:last-child {
+    margin-bottom: 40px !important;
+}
+
+/* 🔵の位置調整（近い縦線に配置） */
+.roadmap-timeline .roadmap-item::before {
+    content: "🔵";
     position: absolute;
-    left: -37px;
     top: 30px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #3498db;
+    left: -83px;
+    font-size: 18px;
+    z-index: 2;
+    transition: all 0.3s ease;
 }
 
-.roadmap-date {
-    color: #3498db;
-    font-weight: bold;
-    margin-bottom: 10px;
+.roadmap-timeline .roadmap-item:hover::before {
+    left: -75px;
 }
 
-.roadmap-item h3 {
-    color: #2c3e50;
+.roadmap-timeline .roadmap-item h3 {
+    margin-top: 0;
     margin-bottom: 15px;
+    color: #333;
+    font-weight: bold;
+    font-size: 1.4rem;
 }
 
-.roadmap-content {
+.roadmap-timeline .roadmap-item .content-date {
+    color: #666 !important;
+    font-weight: bold;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+}
+
+.roadmap-timeline .roadmap-item .content-body {
     color: #555;
+    line-height: 1.6;
+    font-size: 1rem;
 }
 
 /* サーバー情報表示 */

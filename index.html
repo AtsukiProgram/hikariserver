@@ -4,28 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>光鯖公式ホームページ</title>
-    <meta name="description" content="光鯖は作業勢、建築勢、PVP勢など様々なプレイヤーが参加しているマインクラフトサーバーです。">
-    <meta name="keywords" content="光鯖,マインクラフト,サーバー,Minecraft,ゲーム,hikaripage">
+    <meta name="description" content="光鯖は様々なプレイヤーが参加する活発なマインクラフト自作サーバーです。作業勢、建築勢、PVP勢が集まるコミュニティで、まだ見ぬ世界を魅せます。">
+    <meta name="keywords" content="光鯖,マインクラフト,自作サーバー,建築,PVP,作業勢,コミュニティ,Minecraft">
     <!-- ファビコン設定 -->
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="shortcut icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="apple-touch-icon-precomposed" href="icon.png">
-    <!-- Open Graph（SNS共有用） -->
-    <meta property="og:title" content="光鯖公式ホームページ">
-    <meta property="og:description" content="まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <!-- Open Graph（SNS共有用・改善版） -->
+    <meta property="og:title" content="光鯖 - まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <meta property="og:description" content="様々なプレイヤーが参加する活発なマインクラフト自作サーバー。作業勢、建築勢、PVP勢が集まるコミュニティです。">
     <meta property="og:url" content="https://hikaripage.f5.si">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://hikaripage.f5.si/logo.png">
+    <meta property="og:site_name" content="光鯖公式ホームページ">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="光鯖公式ホームページ">
-    <meta name="twitter:description" content="まだ見ぬ世界を魅せるマインクラフトサーバー">
+    <meta name="twitter:description" content="様々なプレイヤーが参加する活発なマインクラフト自作サーバー">
     <meta name="twitter:image" content="https://hikaripage.f5.si/logo.png">
     <!-- その他のタグ -->
     <link rel="canonical" href="https://hikaripage.f5.si">
     <link rel="stylesheet" href="style.css">
-    <!-- 構造化データ -->
+    <!-- 構造化データ（改善版） -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -33,7 +34,13 @@
       "name": "光鯖公式ホームページ",
       "alternateName": "光鯖",
       "url": "https://hikaripage.f5.si",
-      "description": "まだ見ぬ世界を魅せるマインクラフトサーバー",
+      "description": "様々なプレイヤーが参加する活発なマインクラフト自作サーバー。作業勢、建築勢、PVP勢が集まるコミュニティで、まだ見ぬ世界を魅せます。",
+      "publisher": {
+        "@type": "Organization",
+        "name": "光鯖",
+        "url": "https://hikaripage.f5.si",
+        "logo": "https://hikaripage.f5.si/logo.png"
+      },
       "potentialAction": {
         "@type": "SearchAction",
         "target": {
@@ -41,11 +48,24 @@
           "urlTemplate": "https://hikaripage.f5.si/?search={search_term_string}"
         },
         "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <!-- ゲームサーバー用構造化データ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "GameServer",
+      "name": "光鯖",
+      "description": "まだ見ぬ世界を魅せるマインクラフトサーバー",
+      "game": {
+        "@type": "VideoGame",
+        "name": "Minecraft"
       },
-      "publisher": {
+      "url": "https://hikaripage.f5.si",
+      "provider": {
         "@type": "Organization",
-        "name": "光鯖",
-        "url": "https://hikaripage.f5.si"
+        "name": "光鯖"
       }
     }
     </script>
