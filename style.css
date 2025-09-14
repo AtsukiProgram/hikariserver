@@ -345,12 +345,12 @@ body {
     color: white;
 }
 
-/* ロードマップタイムライン（修正版：縦線一本化・他のタブと同じボタン表示） */
+/* ロードマップタイムライン（他のタブと同じ編集・削除ボタン表示） */
 .roadmap-timeline {
     position: relative;
     margin-left: 50px;
     padding-left: 70px;
-    border-left: 3px solid #007BFF; /* メインの縦線のみ */
+    border-left: 3px solid #007BFF;
     transition: all 0.3s ease;
 }
 
@@ -383,14 +383,18 @@ body {
     margin-bottom: 40px !important;
 }
 
-/* 🔵の位置調整（近い縦線に配置） */
+/* 🔵を通常の青い丸に変更 */
 .roadmap-timeline .roadmap-item::before {
-    content: "🔵";
+    content: "";
     position: absolute;
-    top: 30px;
+    top: 36px;
     left: -83px;
-    font-size: 18px;
+    width: 16px;
+    height: 16px;
+    background-color: #007BFF;
+    border-radius: 50%;
     z-index: 2;
+    box-shadow: 0 0 6px rgba(0, 123, 255, 0.3);
     transition: all 0.3s ease;
 }
 
@@ -417,6 +421,52 @@ body {
     color: #555;
     line-height: 1.6;
     font-size: 1rem;
+}
+
+/* 編集・削除ボタン（他のタブと同じスタイル） */
+.roadmap-timeline .roadmap-item .edit-btn,
+.roadmap-timeline .roadmap-item .delete-btn {
+    position: absolute;
+    top: 15px;
+    width: 30px;
+    height: 30px;
+    border: 2px solid #ddd;
+    border-radius: 50%;
+    background: white;
+    color: #666;
+    cursor: pointer;
+    display: none; /* デフォルトで非表示 */
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    z-index: 10;
+    font-size: 14px;
+}
+
+.roadmap-timeline .roadmap-item .edit-btn {
+    right: 50px;
+    font-size: 12px;
+}
+
+.roadmap-timeline .roadmap-item .delete-btn {
+    right: 15px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.roadmap-timeline .roadmap-item .edit-btn:hover {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+.roadmap-timeline .roadmap-item .delete-btn:hover {
+    background: #e74c3c;
+    color: white;
+    border-color: #e74c3c;
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
 }
 
 /* サーバー情報表示 */
