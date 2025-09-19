@@ -96,7 +96,7 @@ class LightServerWebsite {
             this.forceButtonRefresh();
         }, 100);
 
-        console.log('光鯖公式ホームページ初期化完了（全改善対応版）');
+        console.log('光鯖公式ホームページ初期化完了（NEWSのundefined修正・メンバー古い順表示版）');
     }
 
     setupRealtimeUpdates() {
@@ -1047,104 +1047,6 @@ class LightServerWebsite {
                 <div class="users-list">
                     ${userListHtml}
                 </div>
-                <style>
-                .user-permission-item {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 20px;
-                    border: 1px solid #ddd;
-                    border-radius: 8px;
-                    background: white;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    margin-bottom: 30px;
-                    min-height: 80px;
-                }
-                .user-permission-info {
-                    display: flex;
-                    align-items: center;
-                    gap: 15px;
-                    flex: 1;
-                    min-width: 0;
-                }
-                .user-permission-avatar {
-                    width: 50px;
-                    height: 50px;
-                    border-radius: 50%;
-                    flex-shrink: 0;
-                }
-                .user-permission-details {
-                    min-width: 0;
-                    flex: 1;
-                }
-                .user-permission-name {
-                    font-weight: bold;
-                    font-size: 16px;
-                    margin-bottom: 6px;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    color: #333;
-                }
-                .user-permission-id {
-                    font-size: 13px;
-                    color: #666;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                .role-select-wrapper {
-                    min-height: 50px;
-                    min-width: 140px;
-                    flex-shrink: 0;
-                    display: flex;
-                    align-items: center;
-                }
-                .role-select {
-                    width: 140px;
-                    height: 42px;
-                    padding: 10px 12px;
-                    background: white;
-                    border: 2px solid #ddd;
-                    border-radius: 6px;
-                    font-size: 15px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    appearance: menulist;
-                }
-                .role-select:focus {
-                    outline: none;
-                    border-color: #007bff;
-                    box-shadow: 0 0 0 3px rgba(0,123,255,0.2);
-                    background: #f8f9fa;
-                }
-                .role-select:hover {
-                    border-color: #007bff;
-                }
-                .role-select option {
-                    padding: 8px 12px;
-                    background: white;
-                    color: #333;
-                    font-size: 15px;
-                }
-                @media (max-width: 768px) {
-                    .user-permission-item {
-                        flex-direction: column;
-                        align-items: flex-start;
-                        gap: 15px;
-                        padding: 15px;
-                        min-height: auto;
-                    }
-                    .role-select-wrapper {
-                        width: 100%;
-                        min-width: auto;
-                    }
-                    .role-select {
-                        width: 100%;
-                    }
-                }
-                </style>
             `;
         } else {
             permissionsContent.innerHTML = `
@@ -1587,11 +1489,12 @@ class LightServerWebsite {
             return dateA - dateB; // 古い順（昇順）
         });
 
-        sortedMembers.forEach((item, index) => {
+        sortedMembers.forEach((item) => {
             const originalIndex = this.data.member.indexOf(item);
             const element = this.createContentElement(item, originalIndex, 'member');
             container.appendChild(element);
         });
+
         this.updateUI();
     }
 
@@ -2001,7 +1904,12 @@ class LightServerWebsite {
             div.innerHTML = contactContent;
         } else {
             // NEWS等のその他のタブ - 作成日を表示（undefined修正版）
-            const displayDate = (type === 'news') ? (item.createdDate || item.date) : item.date;
+            let displayDate = item.date;
+
+            // NEWSの場合は作成日（createdDate）を優先表示
+            if (type === 'news') {
+                displayDate = item.createdDate || item.date || '日付なし';
+            }
 
             div.className = 'content-item';
             div.innerHTML = `
@@ -2211,27 +2119,30 @@ class LightServerWebsite {
 
         if (!isValid) return;
 
-        // 作成日を保持（重要：編集時も作成日を維持）
+        // 元のアイテムを取得
         const originalItem = this.data[this.editType][this.editIndex];
 
+        // 作成日を保持（重要：NEWSのundefined修正）
         if (this.editType === 'news') {
             // NEWSの場合：作成日を保持、編集日を更新
-            data.date = originalItem.createdDate || originalItem.date; // 作成日を保持
-            data.createdDate = originalItem.createdDate || originalItem.date; // 作成日フィールド
-            data.lastModified = this.getCurrentDateString(); // 最終編集日
-        } else if (this.editType !== 'news') {
+            data.createdDate = originalItem.createdDate || originalItem.date || this.getCurrentDateString();
+            data.date = data.createdDate; // 表示用
+            data.lastModified = this.getCurrentDateString(); // 編集日
+        } else {
             // その他のタブ：元の日付を保持
-            data.date = originalItem.date;
+            data.date = originalItem.date || this.getCurrentDateString();
+
+            if (this.editType === 'member') {
+                // メンバーも作成日を保持
+                data.createdDate = originalItem.createdDate || originalItem.date || this.getCurrentDateString();
+            }
+
             if (this.editType === 'contact') {
                 data.sender = originalItem.sender;
                 data.userId = originalItem.userId;
                 if (originalItem.reply) {
                     data.reply = originalItem.reply;
                 }
-            }
-            if (this.editType === 'member') {
-                data.userId = originalItem.userId;
-                data.createdDate = originalItem.createdDate || originalItem.date; // 作成日保持
             }
         }
 
@@ -2240,6 +2151,8 @@ class LightServerWebsite {
         this.saveData();
         this.renderCurrentPage();
         this.hideModal();
+
+        alert('編集内容を保存しました');
     }
 
     parseDiscordMarkdown(text) {
@@ -2460,6 +2373,7 @@ class LightServerWebsite {
             data.createdDate = currentDate; // 作成日フィールド
         } else {
             data.date = currentDate;
+
             if (this.currentPage === 'member') {
                 data.createdDate = currentDate; // メンバーにも作成日追加
             }
