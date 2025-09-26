@@ -13,16 +13,16 @@ const firebaseConfig = {
     appId: "1:513214205524:web:11369148fb6429fe1567c1"
 };
 
+// script.js の該当箇所だけ値を更新（他は変更しない）
 const DISCORD_CONFIG = {
-    CLIENT_ID: "1421025442642788402",
+    CLIENT_ID: "1421025442642788402",                 // ← あなたの新しいClient ID
     CLIENT_SECRET: "ma0SxjoZRAmUoPplFbqnD5oZcxlxFzPS",
-    REDIRECT_URI: "https://hikaripage.f5.si/callback",
-    AUTH_URL: "https://discord.com/oauth2/authorize",
+    REDIRECT_URI: "https://hikaripage.f5.si/",        // ← ルートに統一（/callbackは使わない）
+    AUTH_URL: "https://discord.com/oauth2/authorize", // 認可エンドポイント
     TOKEN_URL: "https://discord.com/api/oauth2/token",
     API_BASE: "https://discord.com/api/v10",
-    SCOPE: "identify email"
+    SCOPE: "identify email"                           // ← 提示URLと同じスコープ
 };
-
 
 // Firebase初期化
 const app = initializeApp(firebaseConfig);
