@@ -13,16 +13,16 @@ const firebaseConfig = {
     appId: "1:513214205524:web:11369148fb6429fe1567c1"
 };
 
-// Discord OAuth2設定
 const DISCORD_CONFIG = {
-    CLIENT_ID: "1408428315974434906",
-    CLIENT_SECRET: "aEhzDpiEnA0sjsnXG7FbX-KZu8176TsK",
-    REDIRECT_URI: "https://hikaripage.f5.si/",
-    AUTH_URL: "https://discord.com/api/oauth2/authorize",
+    CLIENT_ID: "1421025442642788402",
+    CLIENT_SECRET: "ma0SxjoZRAmUoPplFbqnD5oZcxlxFzPS",
+    REDIRECT_URI: "https://hikaripage.f5.si/callback",
+    AUTH_URL: "https://discord.com/oauth2/authorize",
     TOKEN_URL: "https://discord.com/api/oauth2/token",
     API_BASE: "https://discord.com/api/v10",
     SCOPE: "identify email"
 };
+
 
 // Firebase初期化
 const app = initializeApp(firebaseConfig);
